@@ -1,3 +1,4 @@
+import { MANUAL_PROSE_HANDOFF_MESSAGE } from "./production/authoring";
 import type { NovelCorePipelineService } from "./novelCorePipelineService";
 
 const SERVER_RESTART_RECOVERY_MESSAGE = "章节流水线任务因服务重启中断，正在尝试恢复。";
@@ -42,7 +43,7 @@ export class NovelPipelineRuntimeService {
     await this.finalizeCancelledJobs(pendingCancellationRows);
     const rows = await this.pipelineService.listRecoverablePipelineJobs();
     for (const row of rows) {
-      await this.pipelineService.markPipelineJobPendingManualRecovery(row.id, "服务重启后任务已暂停，等待手动恢复。");
+      await this.pipelineService.markPipelineJobPendingManualRecovery(row.id, MANUAL_PROSE_HANDOFF_MESSAGE);
     }
   }
 
@@ -82,15 +83,10 @@ export class NovelPipelineRuntimeService {
     recoveryMessage: string,
   ): Promise<void> {
     for (const row of rows) {
-      try {
-        await this.pipelineService.resumePipelineJob(row.id);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "章节流水线任务恢复失败。";
-        await this.pipelineService.markPipelineJobPendingManualRecovery(
-          row.id,
-          `${recoveryMessage} 恢复失败：${message}`,
-        );
-      }
+      await this.pipelineService.markPipelineJobPendingManualRecovery(
+        row.id,
+        MANUAL_PROSE_HANDOFF_MESSAGE,
+      );
     }
   }
 

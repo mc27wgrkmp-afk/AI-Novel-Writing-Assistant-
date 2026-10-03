@@ -151,7 +151,7 @@ export default function ChapterManagementTab(props: ChapterTabViewProps) {
           <div className="space-y-1">
             <CardTitle>章节执行</CardTitle>
             <div className="text-sm leading-6 text-muted-foreground">
-              把这里收成真正的主工作台：左侧只管切章，中间完整承接正文，右侧专心放 AI 动作和策略。
+              选择章节，查看 AI 准备的分纲与剧本，再进入编辑器写正文。
             </div>
           </div>
           <Button onClick={onCreateChapter} disabled={isCreatingChapter}>
@@ -171,7 +171,7 @@ export default function ChapterManagementTab(props: ChapterTabViewProps) {
 
         {!hasCharacters ? (
           <div className="flex flex-col gap-3 rounded-2xl bg-amber-50 p-4 text-sm text-amber-900 md:flex-row md:items-center md:justify-between">
-            <span>请先添加至少 1 个角色，再生成章节内容。这样 AI 更容易识别出场者、关系变化和情节承接。</span>
+            <span>添加角色后，AI 可以据此规划出场者、关系变化和情节承接。</span>
             <Button size="sm" variant="outline" onClick={onGoToCharacterTab}>去角色管理</Button>
           </div>
         ) : null}
@@ -230,7 +230,7 @@ export default function ChapterManagementTab(props: ChapterTabViewProps) {
               <TabsList className="grid h-auto w-full shrink-0 grid-cols-3 rounded-xl bg-muted/50 p-1.5">
                 <TabsTrigger value="insights" className="rounded-lg px-3 py-2 text-sm">动态栏</TabsTrigger>
                 <TabsTrigger value="reference" className="rounded-lg px-3 py-2 text-sm">资料诊断</TabsTrigger>
-                <TabsTrigger value="agent" className="rounded-lg px-3 py-2 text-sm">AI 执行台</TabsTrigger>
+                <TabsTrigger value="agent" className="rounded-lg px-3 py-2 text-sm">剧本助手</TabsTrigger>
               </TabsList>
               <TabsContent value="insights" className="mt-3 min-h-0 flex-1">
                 <ChapterExecutionInsightsSidebar

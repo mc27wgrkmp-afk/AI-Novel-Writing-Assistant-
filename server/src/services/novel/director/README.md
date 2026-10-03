@@ -65,3 +65,11 @@ import {
 新代码不应新增 `DirectorRuntimeCommand` / `DirectorRuntimeExecution` 写入路径。需要展示旧任务历史时，可以通过 runtime projection 读取这些历史行；需要排队执行时，必须通过 `DirectorCommandService` 创建 `DirectorRunCommand`。
 
 问题治理动作必须由真实执行边界确认后再登记 `issue_action_applied`。命令租约恢复负责重新排队、人工恢复或失败终态，流水线和熔断器分别负责自己的控制流；这些模块不能只记录策略决定后继续使用旧分支。
+
+## 大纲与剧本交付边界
+
+自动导演负责故事原型、世界观、人物、分卷、章节列表和章节剧本。章节任务单与场景卡须在规划阶段生成并同步；完成后记录 `structured_outline / workflow_completed`，导演会话结束并释放编辑锁，正文由作者在创作工作台撰写。
+
+旧任务的 `auto_to_execution`、`full_book_autopilot` 仅作为输入兼容值，归一化为 `auto_to_ready`，保留原章节范围。旧正文检查点继续时先回到章节剧本准备，不启动正文流水线。创作界面选择只保存偏好；不得排队正文命令。保留自动执行入口的拒绝保护，防止历史后台命令绕过规划边界。
+
+规划同步保留已有正文与派生资料，不执行正文或审核资料重置。脚本缺失应补齐脚本，而不能依赖正文执行前的即时规划。

@@ -1,3 +1,4 @@
+import { assertAiProseGenerationAllowed } from "../production/authoring";
 import type { BaseMessageChunk } from "@langchain/core/messages";
 import type { StreamDoneHelpers, StreamDonePayload } from "../../../llm/streaming";
 import { prisma } from "../../../db/prisma";
@@ -131,6 +132,7 @@ export class ChapterRuntimeCoordinator {
     stream: AsyncIterable<BaseMessageChunk>;
     onDone: (fullContent: string, helpers: StreamDoneHelpers) => Promise<void | StreamDonePayload>;
   }> {
+    assertAiProseGenerationAllowed();
     return this.streamOrchestrator.createChapterStream(novelId, chapterId, options, config);
   }
 
@@ -142,6 +144,7 @@ export class ChapterRuntimeCoordinator {
     stream: AsyncIterable<BaseMessageChunk>;
     onDone: (fullContent: string, helpers: StreamDoneHelpers) => Promise<void>;
   }> {
+    assertAiProseGenerationAllowed();
     return this.repairStreamRuntime.createRepairStream(novelId, chapterId, options);
   }
 
@@ -151,6 +154,7 @@ export class ChapterRuntimeCoordinator {
     options: PipelineRuntimeInput = {},
     hooks: PipelineRuntimeHooks = {},
   ): Promise<PipelineRuntimeResult> {
+    assertAiProseGenerationAllowed();
     return this.pipelineAdapter.runPipelineChapter(novelId, chapterId, options, hooks);
   }
 

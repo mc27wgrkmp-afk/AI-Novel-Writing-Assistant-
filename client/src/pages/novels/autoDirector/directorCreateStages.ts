@@ -19,8 +19,8 @@ export const AUTO_DIRECTOR_CREATE_STAGES: Array<{
   { key: "idea", order: 0, label: "起始想法" },
   { key: "basic", order: 1, label: "导演起始设置" },
   { key: "world_style", order: 2, label: "世界与写法" },
-  { key: "model_run", order: 3, label: "模型与生产准备" },
-  { key: "candidates", order: 4, label: "方向与自动准备" },
+  { key: "model_run", order: 3, label: "模型与剧本规划" },
+  { key: "candidates", order: 4, label: "方向与剧本准备" },
 ];
 
 function findLabel(options: Array<{ value: string; label: string }>, value: string): string {
@@ -76,6 +76,5 @@ export function summarizeModelRunStage(input: {
   runModeOptions: DirectorRunModeOption[];
   postGenerationStyleReviewEnabled: boolean;
 }): string {
-  const runModeLabel = input.runModeOptions.find((option) => option.value === input.runMode)?.label ?? input.runMode;
-  return `${runModeLabel} · ${input.postGenerationStyleReviewEnabled ? "正文后检测 AI 味" : "不做正文后 AI 味检测"}`;
+  return "AI 完成大纲与章节剧本 · 作者写正文";
 }

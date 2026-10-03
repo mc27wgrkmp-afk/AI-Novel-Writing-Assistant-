@@ -1,6 +1,5 @@
 import {
   DIRECTOR_RUN_MODES,
-  isDirectorAutoExecutionRunMode,
   isFullBookAutopilotRunMode,
   normalizeDirectorContinuationMode,
   type DirectorConfirmRequest,
@@ -29,15 +28,12 @@ import {
   loadDirectorTakeoverState,
   resolveDirectorRunningStateForPhase,
 } from "./novelDirectorTakeoverRuntime";
-import { getDirectorExecutionNodeAdapter } from "../phases/novelDirectorExecutionNodeAdapters";
 import type { NovelDirectorCandidateRuntime } from "./novelDirectorCandidateRuntime";
 import type { NovelDirectorAutoExecutionRuntime } from "../automation/novelDirectorAutoExecutionRuntime";
 import type { NovelDirectorAutoExecutionRuntimeDeps } from "../automation/novelDirectorAutoExecutionRuntimePorts";
 import type { DirectorPipelineRunInput, NovelDirectorPipelineRuntime } from "../novelDirectorPipelineRuntime";
 import type { NovelDirectorRuntimeOrchestrator } from "./novelDirectorRuntimeOrchestrator";
 import type { DirectorRuntimeService } from "./DirectorRuntimeService";
-import { buildDefaultDirectorPolicy } from "./directorRuntimeDefaults";
-import { prisma } from "../../../../db/prisma";
 
 export type DirectorAssetFirstRecovery =
   | {
@@ -180,63 +176,6 @@ export class NovelDirectorContinueRuntime {
     scheduleBackgroundRun: (taskId: string, runner: () => Promise<void>) => void;
   }) {}
 
-  private async resumeApprovedChapterExecutionNode(input: {
-    taskId: string;
-    novelId: string;
-    request: DirectorConfirmRequest;
-    existingPipelineJobId?: string | null;
-    existingState?: DirectorWorkflowSeedPayload["autoExecution"] | null;
-    resumeCheckpointType: "chapter_batch_ready";
-    previousFailureMessage?: string | null;
-    allowSkipReviewBlockedChapter?: boolean;
-    approveAutoExecutionScope: boolean;
-  }): Promise<void> {
-    const adapter = getDirectorExecutionNodeAdapter("chapter_execution");
-    const snapshot = await this.deps.directorRuntime.getSnapshot(input.taskId).catch(() => null);
-    const basePolicy = snapshot?.policy ?? buildDefaultDirectorPolicy();
-    await this.deps.directorRuntime.runNode(
-      {
-        nodeKey: adapter.nodeKey,
-        label: adapter.label,
-        reads: adapter.reads,
-        writes: adapter.writes,
-        policyAction: adapter.policyAction,
-        mayModifyUserContent: adapter.mayModifyUserContent,
-        requiresApprovalByDefault: adapter.requiresApprovalByDefault,
-        supportsAutoRetry: adapter.supportsAutoRetry,
-        run: async () => {
-          await this.deps.autoExecutionRuntime.runFromReady({
-            taskId: input.taskId,
-            novelId: input.novelId,
-            request: input.request,
-            existingPipelineJobId: input.existingPipelineJobId,
-            existingState: input.existingState,
-            resumeCheckpointType: input.resumeCheckpointType,
-            previousFailureMessage: input.previousFailureMessage,
-            allowSkipReviewBlockedChapter: input.allowSkipReviewBlockedChapter,
-            approveAutoExecutionScope: input.approveAutoExecutionScope,
-          });
-        },
-      },
-      {
-        taskId: input.taskId,
-        novelId: input.novelId,
-        targetType: adapter.targetType,
-        targetId: input.novelId,
-        payload: undefined,
-        policy: {
-          policy: {
-            ...basePolicy,
-            mode: "auto_safe_scope",
-            allowExpensiveReview: input.approveAutoExecutionScope,
-            updatedAt: new Date().toISOString(),
-          },
-        },
-        reuseCompletedStep: false,
-      },
-    );
-  }
-
   async continueTask(taskId: string, input?: {
     continuationMode?: DirectorContinuationMode;
     batchAlreadyStartedCount?: number;
@@ -305,124 +244,28 @@ export class NovelDirectorContinueRuntime {
     });
     const requestedAutoExecutionContinue = continuationMode === "auto_execute_range" || requestedSkipQualityRepair;
     const baseRunMode = normalizeDirectorRunMode(directorInput.runMode ?? fallbackRunMode);
-    const runMode = requestedAutoExecutionContinue && !isDirectorAutoExecutionRunMode(baseRunMode)
-      ? "auto_to_execution"
-      : baseRunMode;
+    const runMode = baseRunMode;
     const isFullBookAutopilot = isFullBookAutopilotRunMode(runMode);
     const effectiveDirectorInput = applyDirectorRunModeContract({
       ...directorInput,
       runMode,
       ...(input?.acceptManualChanges ? { stepCalibrationInstruction: null } : {}),
     });
-    const assetFirstRecovery = await this.resolveAssetFirstRecovery({
+    const recovery = await this.resolveAssetFirstRecovery({
       novelId,
       directorInput: effectiveDirectorInput,
     });
-    const canSkipReviewBlockedChapter = (
-      row.status === "failed"
-      || row.status === "cancelled"
-    ) && (
-      requestedAutoExecutionContinue
-      || isFullBookAutopilot
-    );
+    // Legacy prose checkpoints recover through script preparation, never generation.
+    const isLegacyProseCheckpoint = row.checkpointType === "production_experience_required"
+      || row.checkpointType === "chapter_batch_ready"
+      || row.checkpointType === "replan_required"
+      || row.currentStage === "chapter_execution"
+      || row.currentStage === "quality_repair";
+    const assetFirstRecovery: DirectorAssetFirstRecovery = recovery?.type === "auto_execution"
+      || (!recovery && (isLegacyProseCheckpoint || requestedAutoExecutionContinue))
+      ? { type: "phase", phase: "structured_outline" }
+      : recovery;
     const approveCurrentGate = continuationMode === "resume" || isFullBookAutopilot;
-    const approveAutoExecutionGate = approveCurrentGate || requestedAutoExecutionContinue;
-
-    if (assetFirstRecovery?.type === "auto_execution") {
-      const checkpointChapterId = (
-        parseResumeTargetLike(row.resumeTargetJson)?.chapterId
-        ?? parseResumeTargetLike(seedPayload.resumeTarget)?.chapterId
-        ?? seedPayload.autoExecution?.nextChapterId
-        ?? null
-      );
-      const firstUnwrittenChapter = requestedReplanRecovery
-        ? await prisma.chapter.findFirst({
-          where: {
-            novelId,
-            OR: [{ content: null }, { content: "" }],
-          },
-          orderBy: { order: "asc" },
-          select: { id: true },
-        })
-        : null;
-      const resumedChapterId = firstUnwrittenChapter?.id ?? checkpointChapterId;
-      await this.deps.workflowService.markTaskRunning(taskId, {
-        stage: assetFirstRecovery.resumeCheckpointType === "replan_required" ? "quality_repair" : "chapter_execution",
-        itemKey: assetFirstRecovery.resumeCheckpointType === "replan_required" ? "quality_repair" : "chapter_execution",
-        itemLabel: assetFirstRecovery.resumeCheckpointType === "replan_required"
-          ? "正在根据当前内容恢复质量修复"
-          : "正在根据当前内容恢复章节执行",
-        progress: assetFirstRecovery.resumeCheckpointType === "replan_required" ? 0.975 : 0.93,
-        clearCheckpoint: assetFirstRecovery.resumeCheckpointType === "chapter_batch_ready",
-        seedPayload: this.deps.buildDirectorSeedPayload(effectiveDirectorInput, novelId, {
-          directorSession: buildDirectorSessionState({
-            runMode: effectiveDirectorInput.runMode,
-            phase: "chapter_execution",
-            isBackgroundRunning: true,
-          }),
-          resumeTarget: buildNovelEditResumeTarget({
-            novelId,
-            taskId,
-            stage: "pipeline",
-            chapterId: resumedChapterId,
-          }),
-          autoExecution: seedPayload.autoExecution ?? null,
-        }),
-      });
-      this.deps.scheduleBackgroundRun(taskId, async () => {
-        if (requestedReplanRecovery) {
-          const existingRun = await prisma.replanRun.findFirst({
-            where: { novelId, chapterId: checkpointChapterId ?? undefined },
-            orderBy: { createdAt: "desc" },
-            select: { id: true },
-          });
-          if (!existingRun) {
-            await this.deps.replanNovel(novelId, {
-              chapterId: resumedChapterId ?? undefined,
-              triggerType: "director_replan_recovery",
-              windowSize: 3,
-              reason: row.lastError?.trim() || "当前章节与相邻章节的计划需要重新对齐。",
-              provider: effectiveDirectorInput.provider,
-              model: effectiveDirectorInput.model,
-              temperature: effectiveDirectorInput.temperature,
-            });
-          }
-        }
-        const shouldResumeApprovedExecutionNode = (
-          row.status === "waiting_approval"
-          && assetFirstRecovery.resumeCheckpointType === "chapter_batch_ready"
-          && requestedAutoExecutionContinue
-        );
-        if (shouldResumeApprovedExecutionNode) {
-          await this.resumeApprovedChapterExecutionNode({
-            taskId,
-            novelId,
-            request: effectiveDirectorInput,
-            existingPipelineJobId: seedPayload.autoExecution?.pipelineJobId ?? null,
-            existingState: seedPayload.autoExecution ?? null,
-            resumeCheckpointType: "chapter_batch_ready",
-            previousFailureMessage: row.lastError ?? null,
-            allowSkipReviewBlockedChapter: canSkipReviewBlockedChapter,
-            approveAutoExecutionScope: requestedAutoExecutionContinue || isFullBookAutopilot,
-          });
-          return;
-        }
-        await this.deps.autoExecutionRuntime.runFromReady({
-          taskId,
-          novelId,
-          request: effectiveDirectorInput,
-          existingPipelineJobId: seedPayload.autoExecution?.pipelineJobId ?? null,
-          existingState: seedPayload.autoExecution ?? null,
-          resumeCheckpointType: assetFirstRecovery.resumeCheckpointType,
-          previousFailureMessage: row.lastError ?? null,
-          allowSkipReviewBlockedChapter: canSkipReviewBlockedChapter,
-          approveAutoExecutionScope: requestedAutoExecutionContinue || isFullBookAutopilot,
-          skipCurrentQualityRepair: requestedSkipQualityRepair || requestedReplanRecovery,
-          resumePendingManualRecovery: input?.forceResume === true,
-        });
-      });
-      return;
-    }
 
     const inferredPhase = inferPhaseFromTaskState({
       currentItemKey: row.currentItemKey,

@@ -1,3 +1,4 @@
+import { assertAiProseGenerationAllowed } from "../../../../services/novel/production/authoring";
 import type { Router } from "express";
 import type { ApiResponse } from "@ai-novel/shared/types/api";
 import { z } from "zod";
@@ -59,6 +60,7 @@ export function registerNovelChapterEditorRoutes(input: RegisterNovelChapterEdit
     async (req, res, next) => {
       try {
         const { id, chapterId } = req.params as z.infer<typeof chapterParamsSchema>;
+        assertAiProseGenerationAllowed();
         const data = await novelService.previewChapterAiRevision(id, chapterId, req.body as any);
         res.status(200).json({
           success: true,

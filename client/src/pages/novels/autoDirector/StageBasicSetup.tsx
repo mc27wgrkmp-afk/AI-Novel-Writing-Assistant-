@@ -60,14 +60,14 @@ export default function StageBasicSetup({
         <div>
           <div className="text-sm font-medium text-foreground">AI 会自动确定创作底座</div>
           <div className={`mt-1 text-xs leading-5 text-muted-foreground ${AUTO_DIRECTOR_MOBILE_CLASSES.wrapText}`}>
-            系统会根据起始想法确定题材和主要推进方式，并贯穿方向规划、正文、检查与修复。创建后仍可在作品设置中调整后续写法。
+            系统会根据起始想法确定题材和主要推进方式，用于大纲、人物和章节剧本的规划。创建后可在作品设置中调整。
           </div>
         </div>
       </div>
 
       <div className="grid gap-x-8 gap-y-6 md:grid-cols-2">
         <div className="space-y-2">
-          <FieldLabel htmlFor="director-basic-platform" hint="决定规划、正文、审校和修复采用哪类平台读感。">目标平台</FieldLabel>
+          <FieldLabel htmlFor="director-basic-platform" hint="帮助 AI 按目标平台规划故事节奏与桥段。">目标平台</FieldLabel>
           <SelectControl
             id="director-basic-platform"
             className={controlClassName}

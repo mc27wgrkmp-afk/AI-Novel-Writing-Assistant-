@@ -1,11 +1,13 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
+const { MANUAL_PROSE_HANDOFF_MESSAGE } = require("../dist/services/novel/production/authoring/index.js");
+
 const {
   NovelPipelineRuntimeService,
 } = require("../dist/services/novel/NovelPipelineRuntimeService.js");
 
-test("resumePendingPipelineJobs resumes queued and running pipeline jobs after restart", async () => {
+test("resumePendingPipelineJobs hands old queued and running prose jobs back to the author after restart", async () => {
   const calls = [];
   const runtimeService = new NovelPipelineRuntimeService({
     async listPendingCancellationPipelineJobs() {
@@ -37,12 +39,12 @@ test("resumePendingPipelineJobs resumes queued and running pipeline jobs after r
   await runtimeService.resumePendingPipelineJobs();
 
   assert.deepEqual(calls, [
-    ["resume", "job-queued"],
-    ["resume", "job-running"],
+    ["pending", "job-queued", MANUAL_PROSE_HANDOFF_MESSAGE],
+    ["pending", "job-running", MANUAL_PROSE_HANDOFF_MESSAGE],
   ]);
 });
 
-test("resumePendingPipelineJobs settles pending cancellations before resuming work", async () => {
+test("resumePendingPipelineJobs settles pending cancellations before handing back old prose jobs", async () => {
   const calls = [];
   const runtimeService = new NovelPipelineRuntimeService({
     async listPendingCancellationPipelineJobs() {
@@ -72,7 +74,7 @@ test("resumePendingPipelineJobs settles pending cancellations before resuming wo
 
   assert.deepEqual(calls, [
     ["cancelled", "job-cancelling"],
-    ["resume", "job-running"],
+    ["pending", "job-running", MANUAL_PROSE_HANDOFF_MESSAGE],
   ]);
 });
 
@@ -105,7 +107,7 @@ test("recoverStalePipelineJobs preserves a manual recovery checkpoint when resum
   await runtimeService.recoverStalePipelineJobs(new Date("2026-04-03T00:00:00+08:00"), 60_000);
 
   assert.deepEqual(calls, [
-    ["pending", "job-stale", "章节流水线任务心跳超时，正在尝试恢复。 恢复失败：缺少章节上下文"],
+    ["pending", "job-stale", MANUAL_PROSE_HANDOFF_MESSAGE],
   ]);
 });
 
@@ -142,7 +144,7 @@ test("markPendingPipelineJobsForManualRecovery settles cancellations and marks r
 
   assert.deepEqual(calls, [
     ["cancelled", "job-cancelling"],
-    ["pending", "job-queued", "服务重启后任务已暂停，等待手动恢复。"],
-    ["pending", "job-running", "服务重启后任务已暂停，等待手动恢复。"],
+    ["pending", "job-queued", MANUAL_PROSE_HANDOFF_MESSAGE],
+    ["pending", "job-running", MANUAL_PROSE_HANDOFF_MESSAGE],
   ]);
 });

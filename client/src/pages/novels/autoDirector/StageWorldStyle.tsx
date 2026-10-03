@@ -38,7 +38,7 @@ export default function StageWorldStyle({
         <div>
           <div className="text-2xl font-semibold tracking-normal text-foreground">给故事一个世界底色</div>
           <div className={`mt-2 max-w-2xl text-sm leading-6 text-muted-foreground ${AUTO_DIRECTOR_MOBILE_CLASSES.wrapText}`}>
-            可以选一个世界样本给 AI 参考，也可以让它根据起始想法自动整理本书世界。写法会作为后续规划和正文的默认语气。
+            可以选一个世界样本给 AI 参考，也可以让它根据起始想法自动整理本书世界。写法参考会帮助 AI 规划章节节奏，也供你写作时参考。
           </div>
         </div>
         <div className="rounded-full bg-muted/55 px-3 py-1 text-xs text-muted-foreground">
@@ -76,13 +76,13 @@ export default function StageWorldStyle({
             </div>
           ) : (
             <div className="rounded-lg bg-muted/45 px-4 py-3 text-sm leading-6 text-foreground">
-              AI 会根据宏观规划自动整理本书世界，并将其用于后续角色、章节和正文生成。
+              AI 会根据宏观规划自动整理本书世界，并将其用于人物、大纲和章节剧本。
             </div>
           )}
         </div>
 
         <div className="space-y-2">
-          <FieldLabel htmlFor="director-basic-style-profile" hint="可选。选定后，导演前半段会只读取轻量写法摘要，正文阶段再继续使用完整写法规则。">
+          <FieldLabel htmlFor="director-basic-style-profile" hint="可选。帮助 AI 规划场面与节奏，也供你根据剧本写作时参考。">
             书级默认写法
           </FieldLabel>
           <SelectControl
@@ -97,11 +97,11 @@ export default function StageWorldStyle({
             ))}
           </SelectControl>
           <div className={`text-xs leading-5 text-muted-foreground ${AUTO_DIRECTOR_MOBILE_CLASSES.wrapText}`}>
-            {selectedStyleSummary?.stageSummaryLines[0] ?? "有沉淀好的写法资产时，建议直接选一套，帮助你更清楚地预期导演会怎样写。"}
+            {selectedStyleSummary?.stageSummaryLines[0] ?? "有沉淀好的写法资产时，建议直接选一套，帮助 AI 规划符合你预期的故事节奏。"}
           </div>
           {selectedStyleSummary?.stageSummaryLines.length ? (
             <div className={`pt-1 text-xs leading-6 text-muted-foreground ${AUTO_DIRECTOR_MOBILE_CLASSES.wrapText}`}>
-              这套写法会影响后续章节的语气和节奏：{selectedStyleSummary.stageSummaryLines.join("；")}
+              章节规划采用的写法参考：{selectedStyleSummary.stageSummaryLines.join("；")}
             </div>
           ) : null}
         </div>

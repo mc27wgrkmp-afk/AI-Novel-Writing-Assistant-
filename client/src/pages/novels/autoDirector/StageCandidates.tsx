@@ -17,7 +17,8 @@ export default function StageCandidates({
   onRegenerateSettings,
 }: StageCandidatesProps) {
   if (
-    controller.directorTask?.checkpointType === "production_experience_required"
+    (controller.directorTask?.checkpointType === "production_experience_required"
+      || controller.directorTask?.checkpointType === "workflow_completed")
     && controller.directorTask.resumeTarget?.novelId
   ) {
     return (
@@ -25,6 +26,7 @@ export default function StageCandidates({
         taskId={controller.directorTask.id}
         novelId={controller.directorTask.resumeTarget.novelId}
         novelTitle={controller.directorTask.title}
+        planningCompleted={controller.directorTask.checkpointType === "workflow_completed"}
       />
     );
   }
@@ -52,7 +54,7 @@ export default function StageCandidates({
         storageKey="auto-director-candidates"
         title="这里只需要判断哪本书更想读"
         description="重点比较主角欲望、核心冲突和持续爽点；标题与局部设定以后仍可调整。"
-        next="确认后，AI 会继续准备角色、世界和卷章资源。"
+        next="确认后，AI 会继续准备大纲、角色和章节剧本。"
       />
       <div className="flex flex-col gap-4 pb-1 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">

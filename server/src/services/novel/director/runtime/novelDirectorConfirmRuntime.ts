@@ -66,12 +66,12 @@ export class NovelDirectorConfirmRuntime {
   async confirmCandidate(input: DirectorConfirmRequest): Promise<DirectorConfirmApiResponse> {
     const resolvedInput = applyDirectorRunModeContract({
       ...await this.deps.enrichDirectorStyleContext(input),
-      runMode: "full_book_autopilot" as const,
+      runMode: input.runMode,
       startupPreparation: input.startupPreparation ?? DEFAULT_DIRECTOR_STARTUP_PREPARATION,
       completionProfile: input.completionProfile
         ?? buildDirectorCompletionProfile(input.estimatedChapterCount ?? input.candidate.targetChapterCount),
     });
-    const runMode = "full_book_autopilot" as const;
+    const runMode = resolvedInput.runMode;
     const title = resolvedInput.candidate.workingTitle.trim() || resolvedInput.title?.trim() || "未命名项目";
     const description = resolvedInput.description?.trim() || resolvedInput.candidate.logline.trim();
     const bookSpec = toBookSpec(

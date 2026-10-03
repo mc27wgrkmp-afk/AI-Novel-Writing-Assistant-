@@ -14,7 +14,6 @@ interface ChapterEditorSidebarProps {
   onOpenVersionHistory?: () => void;
   onSave: () => void;
   onFocusDiagnostic: (card: ChapterEditorDiagnosticCard) => void;
-  onRunDiagnostic: (card: ChapterEditorDiagnosticCard) => void;
 }
 
 function MetaChip(props: { label: string }) {
@@ -45,7 +44,6 @@ export default function ChapterEditorSidebar(props: ChapterEditorSidebarProps) {
     onOpenVersionHistory,
     onSave,
     onFocusDiagnostic,
-    onRunDiagnostic,
   } = props;
 
   const recommendedTask = workspace?.recommendedTask ?? null;
@@ -151,7 +149,7 @@ export default function ChapterEditorSidebar(props: ChapterEditorSidebarProps) {
             </div>
           ) : isWorkspaceError ? (
             <div className="text-sm leading-6 text-muted-foreground">
-              宏观定位暂时加载失败，你仍然可以先编辑正文或在右侧直接发起 AI 修正。
+              宏观定位暂时加载失败，你仍然可以先编辑正文并参考章节剧本。
             </div>
           ) : (
             <div className="text-sm leading-6 text-muted-foreground">
@@ -232,18 +230,16 @@ export default function ChapterEditorSidebar(props: ChapterEditorSidebarProps) {
                     >
                       {isSelected ? "取消定位" : "定位到正文"}
                     </Button>
-                    <Button size="sm" onClick={() => onRunDiagnostic(card)}>
-                      直接用 AI 处理
-                    </Button>
+
                   </div>
                 </div>
               );
             }) : (
               <div className="rounded-2xl border border-dashed border-border/70 bg-muted/10 p-4 text-sm leading-6 text-muted-foreground">
                 {isWorkspaceError
-                  ? "问题卡暂时加载失败，你可以先在右侧直接输入修改意见，或手动选中片段发起修正。"
+                  ? "问题卡暂时加载失败，你可以先参考章节剧本，手动修改正文。"
                   : workspace
-                  ? "AI 暂时还没有整理出明确的问题卡，你可以先在右侧直接输入修改意见，或手动选中片段发起修正。"
+                  ? "AI 暂时还没有整理出明确的问题卡，你可以先参考章节剧本，手动修改正文。"
                   : "正在加载本章工作区。"}
               </div>
             )}

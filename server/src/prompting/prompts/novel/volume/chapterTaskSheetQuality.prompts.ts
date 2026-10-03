@@ -59,6 +59,7 @@ function createSystemPrompt(mode: ChapterTaskSheetQualityPromptInput["mode"]): s
     modeRule,
     "只评估当前章节合同，不扩写正文，不改写任务单。",
     "可用合同必须满足：本章目标清晰、边界不越章、任务单可执行、读者体验合同明确本章问题、可见回报、主角欲望、主要阻力、关键转折、净变化和钩子责任，场景卡覆盖整章推进并为每场提供阻力、转折、情绪位移和读者价值。",
+    "以作者能否据此写出完整事件为准验收剧本：人物位置与入场有交代，行动、阻碍、选择和结果连续，道具与信息有来源，场景结果能改变下一步。重复试探和纯感受升级不能单独视为推进。缺少这些内容时不得仅因字段齐全判为 usable。",
     "readerExperience.rewardLevel 表示本章计划提供的可见回报强度，只能使用 setup、partial、major；它不是正文完成度、承诺兑现比例或事后结果评级。",
     "即使正文完整兑现了 promisedReward，也不要建议把 rewardLevel 改为 full、complete 或其他值；只有本章计划的回报强度本身与章节职责不匹配时，才建议在 setup、partial、major 之间调整。",
     "还要判断本章是否被塞入过多彼此争夺篇幅的必达义务；如果任务单显示当前章职责已经过载，loadRisk=overloaded，recommendedHandling=replan_window。",
@@ -104,7 +105,7 @@ export const chapterTaskSheetQualityPrompt: PromptAsset<
   AiChapterTaskSheetQualityAssessment
 > = {
   id: "novel.volume.chapter_task_sheet_quality",
-  version: "v2",
+  version: "v3",
   taskType: "review",
   mode: "structured",
   language: "zh",

@@ -127,10 +127,6 @@ export default function ChapterExecutionResultPanel(props: ChapterExecutionResul
     onOpenReferencePanel("repair");
   };
 
-  const runAutoRepairFromWorkspace = () => {
-    openRepairPanel();
-    onAutoRepair();
-  };
 
   return (
     <div className="h-full">
@@ -180,16 +176,7 @@ export default function ChapterExecutionResultPanel(props: ChapterExecutionResul
                     查看建议
                   </Button>
                 ) : null}
-                {(needsConfirmationPrompt || needsRepairPrompt) ? (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={runAutoRepairFromWorkspace}
-                    disabled={isSelectedChapterRepairStreaming}
-                  >
-                    {isSelectedChapterRepairStreaming ? "修复中..." : "一键修复"}
-                  </Button>
-                ) : null}
+                {needsRepairPrompt ? <Button size="sm" variant="outline" onClick={openQualityPanel}>查看修改建议</Button> : null}
                 {isSelectedChapterStreaming && !isSelectedChapterFinalizing ? (
                   <Button size="sm" variant="secondary" onClick={onAbortStream}>
                     停止生成
@@ -207,7 +194,7 @@ export default function ChapterExecutionResultPanel(props: ChapterExecutionResul
                 </article>
               ) : (
                 <div className="mx-auto max-w-3xl rounded-3xl border border-dashed bg-muted/15 p-8 text-sm leading-7 text-muted-foreground">
-                  当前章节还没有正文。建议先补章节计划或任务单，然后从右侧直接执行“写本章”。
+                  当前章节还没有正文。先准备章节分纲和剧本，再从右侧打开正文编辑器，由你完成写作。
                 </div>
               )}
             </div>

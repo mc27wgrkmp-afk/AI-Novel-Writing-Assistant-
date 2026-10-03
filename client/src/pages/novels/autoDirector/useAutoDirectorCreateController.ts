@@ -4,13 +4,10 @@ import { buildStyleIntentSummary } from "@ai-novel/shared/types/styleEngine";
 import type { UnifiedTaskDetail } from "@ai-novel/shared/types/task";
 import type { DirectorIssuePolicy } from "@ai-novel/shared/types/directorIssue";
 import {
-  DIRECTOR_RUN_MODES,
-  buildFullBookAutopilotExecutionPlan,
   extractDirectorTaskSeedPayloadFromMeta,
   mergeDirectorCandidateBatches,
   type DirectorCandidate,
   type DirectorCandidateBatch,
-  type DirectorAutoExecutionPlan,
   type DirectorCorrectionPreset,
   type DirectorIdeaConstellationOption,
   type DirectorIdeaConstellationSelection,
@@ -37,15 +34,8 @@ import {
   type NovelBasicFormState,
 } from "../novelBasicInfo.shared";
 import {
-  buildDirectorAutoExecutionPlanFromDraft,
-  createDefaultDirectorAutoExecutionDraftState,
-  normalizeDirectorAutoExecutionDraftState,
-} from "../components/directorAutoExecutionPlan.shared";
-import {
   buildAutoDirectorRequestPayload,
   buildInitialIdea,
-  DEFAULT_VISIBLE_RUN_MODE,
-  RUN_MODE_OPTIONS,
 } from "../components/NovelAutoDirectorDialog.shared";
 import { useDirectorAutoApprovalDraft } from "../components/useDirectorAutoApprovalDraft";
 import {
@@ -124,9 +114,8 @@ export function useAutoDirectorCreateController(input: UseAutoDirectorCreateCont
   const [executionRequested, setExecutionRequested] = useState(false);
   const [pendingTitleHint, setPendingTitleHint] = useState("");
   const [executionError, setExecutionError] = useState("");
-  const [runMode, setRunMode] = useState<DirectorRunMode>(initialDraft?.runMode ?? DEFAULT_VISIBLE_RUN_MODE);
+  const runMode: DirectorRunMode = "auto_to_ready";
   const [worldSetupMode, setWorldSetupMode] = useState<DirectorWorldSetupMode>("auto_generate");
-  const [autoExecutionDraft, setAutoExecutionDraft] = useState(() => createDefaultDirectorAutoExecutionDraftState());
   const [selectedStyleProfileId, setSelectedStyleProfileId] = useState(
     initialStyleProfileId || initialDraft?.selectedStyleProfileId || "",
   );
@@ -177,12 +166,6 @@ export function useAutoDirectorCreateController(input: UseAutoDirectorCreateCont
     if (Array.isArray(seedPayload?.batches) && seedPayload.batches.length > 0) {
       setBatches(seedPayload.batches);
     }
-    if (typeof seedPayload?.runMode === "string" && (DIRECTOR_RUN_MODES as readonly string[]).includes(seedPayload.runMode)) {
-      setRunMode(seedPayload.runMode);
-    }
-    if (seedPayload?.autoExecutionPlan) {
-      setAutoExecutionDraft(normalizeDirectorAutoExecutionDraftState(seedPayload.autoExecutionPlan));
-    }
     if (seedPayload?.autoApproval) {
       applyAutoApprovalSnapshot(seedPayload.autoApproval);
     }
@@ -194,7 +177,8 @@ export function useAutoDirectorCreateController(input: UseAutoDirectorCreateCont
 
   const directorBasicForm = useMemo(
     () => patchNovelBasicForm(basicForm, {
-      projectMode: "ai_led",
+      projectMode: "co_pilot",
+      postGenerationStyleReviewEnabled: false,
     }),
     [basicForm],
   );
@@ -205,19 +189,6 @@ export function useAutoDirectorCreateController(input: UseAutoDirectorCreateCont
     }
     setIdea(buildInitialIdea(directorBasicForm));
   }, [directorBasicForm, idea]);
-
-  const buildAutoExecutionPlanForRunMode = (): DirectorAutoExecutionPlan | undefined => {
-    if (runMode === "full_book_autopilot") {
-      return buildFullBookAutopilotExecutionPlan();
-    }
-    if (runMode === "auto_to_execution") {
-      return buildDirectorAutoExecutionPlanFromDraft(autoExecutionDraft, {
-        usage: "new_book",
-        maxChapterCount: directorBasicForm.estimatedChapterCount,
-      });
-    }
-    return undefined;
-  };
 
   const styleProfilesQuery = useQuery({
     queryKey: queryKeys.styleEngine.profiles,
@@ -372,7 +343,7 @@ export function useAutoDirectorCreateController(input: UseAutoDirectorCreateCont
       return workflowTaskId;
     }
 
-    const autoExecutionPlan = buildAutoExecutionPlanForRunMode();
+    const autoExecutionPlan = undefined;
     const response = await bootstrapNovelWorkflow({
       lane: "auto_director",
       title: directorBasicForm.title.trim() || undefined,
@@ -459,7 +430,7 @@ export function useAutoDirectorCreateController(input: UseAutoDirectorCreateCont
       if (!requestIdea) {
         throw new Error("请先补充起始想法，再继续生成或确认书级方向。");
       }
-      const autoExecutionPlan = buildAutoExecutionPlanForRunMode();
+      const autoExecutionPlan = undefined;
       const response = await confirmDirectorCandidate({
         ...buildAutoDirectorRequestPayload(directorBasicForm, requestIdea, llm, runMode, currentWorkflowTaskId, {
           styleProfileId: selectedStyleProfileId,
@@ -687,12 +658,9 @@ export function useAutoDirectorCreateController(input: UseAutoDirectorCreateCont
       return response.data?.idea ?? "";
     },
     runMode,
-    runModeOptions: RUN_MODE_OPTIONS,
-    setRunMode,
+    runModeOptions: [{ value: runMode, label: "大纲与章节剧本", description: "AI 完成规划，作者写正文。" }],
     worldSetupMode,
     setWorldSetupMode,
-    autoExecutionDraft,
-    setAutoExecutionDraft,
     autoApprovalDraft,
     styleProfiles,
     selectedStyleProfileId,

@@ -18,7 +18,6 @@ import type { NovelContextService } from "../NovelContextService";
 import type { StoryMacroPlanService } from "../storyMacro/StoryMacroPlanService";
 import type { NovelVolumeService } from "../volume/NovelVolumeService";
 import type { NovelWorkflowService } from "../workflow/NovelWorkflowService";
-import { recordAutoDirectorAutoApprovalFromTask } from "../../task/autoDirectorFollowUps/autoDirectorAutoApprovalAudit";
 import { normalizeDirectorMemoryScope } from "./runtime/autoDirectorMemorySafety";
 import { buildWorkflowSeedPayload, normalizeDirectorRunMode } from "./runtime/novelDirectorHelpers";
 import {
@@ -244,7 +243,6 @@ export class NovelDirectorPipelineRuntime {
           return;
         }
       }
-      await this.maybeRunAutoApprovedChapters(input);
       return;
     }
   }
@@ -378,28 +376,6 @@ export class NovelDirectorPipelineRuntime {
       return null;
     }
     return workspace;
-  }
-
-  private async maybeRunAutoApprovedChapters(input: DirectorPipelineRunInput): Promise<void> {
-    const shouldAutoApproveCheckpoint = this.shouldAutoApproveCheckpoint(input.input, "chapter_batch_ready");
-    if (!input.approveAutoExecutionScope && !shouldAutoApproveCheckpoint) {
-      return;
-    }
-    if (shouldAutoApproveCheckpoint) {
-      await recordAutoDirectorAutoApprovalFromTask({
-        taskId: input.taskId,
-        checkpointType: "chapter_batch_ready",
-      });
-    }
-    const approval = this.resolveRuntimeApproval(input, "structured_outline_ready");
-    await this.deps.runtimeOrchestrator.runChapterExecutionNode({
-      taskId: input.taskId,
-      novelId: input.novelId,
-      request: input.input,
-      resumeCheckpointType: "chapter_batch_ready",
-      approveCurrentGate: approval.approveCurrentGate,
-      approveAutoExecutionScope: approval.approveAutoExecutionScope,
-    });
   }
 
   private async resolveSafePipelineStartPhase(input: {

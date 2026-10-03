@@ -341,13 +341,13 @@ export function chapterStatusDescription(status?: Chapter["chapterStatus"] | nul
     case "unplanned":
       return "待准备：这章还缺少执行素材，通常要先补章节目标、任务单或场景卡。";
     case "pending_generation":
-      return "待写作：章节计划已基本齐备，可以开始生成正文。";
+      return "待写作：章节计划已基本齐备，可以打开编辑器写正文。";
     case "generating":
       return "写作中：AI 正在生成本章正文，或正在做生成后的收尾处理。";
     case "pending_review":
       return "已审校：正文已经完成当前轮审核。你可以查看建议、直接继续编辑，或按需处理问题。";
     case "needs_repair":
-      return "建议修复：审核发现了问题，但不会阻止继续编辑。你可以一键修复，也可以先继续写。";
+      return "建议修复：审核发现了问题，但不会阻止继续编辑。你可以参考建议自行修改，也可以先继续写。";
     case "completed":
       return "已完成：本章已通过当前流程，可以继续润色或进入下一章。";
     default:
@@ -547,11 +547,11 @@ export function resolveChapterQueuePreview(chapter: Chapter): string {
 
 export function chapterSuggestedActionLabel(chapter: Chapter): string {
   if (chapterHasContinuableQualityLoop(chapter)) {
-    return hasText(chapter.content) ? "继续下一章" : "写本章";
+    return hasText(chapter.content) ? "打开编辑器" : "手写正文";
   }
   const status = resolveDisplayedChapterStatus(chapter);
   if (status === "generating") return "等待生成";
-  if (status === "needs_repair") return "一键修复";
+  if (status === "needs_repair") return "手动修改";
   if (status === "pending_review") {
     return chapter.generationState === "reviewed" || chapter.generationState === "approved"
       ? "查看建议"
@@ -559,7 +559,7 @@ export function chapterSuggestedActionLabel(chapter: Chapter): string {
   }
   if (status === "completed") return "继续润色";
   if (status === "unplanned" || !chapterHasPreparationAssets(chapter)) return "补章节计划";
-  if (!hasText(chapter.content) || status === "pending_generation") return "写本章";
+  if (!hasText(chapter.content) || status === "pending_generation") return "手写正文";
   if (chapter.generationState === "drafted") return "运行审校";
   return "打开编辑器";
 }

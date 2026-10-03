@@ -21,12 +21,9 @@ import {
   DIRECTOR_CORRECTION_PRESETS,
   DIRECTOR_MAX_TARGET_CHAPTER_COUNT,
   DIRECTOR_MIN_TARGET_CHAPTER_COUNT,
-  buildFullBookAutopilotExecutionPlan,
   isDirectorAutoExecutionRunMode,
-  isFullBookAutopilotRunMode,
 } from "@ai-novel/shared/types/novelDirector";
 import {
-  buildFullDirectorAutoApprovalConfig,
   normalizeDirectorAutoApprovalConfig,
   type DirectorAutoApprovalConfig,
 } from "@ai-novel/shared/types/autoDirectorApproval";
@@ -114,16 +111,8 @@ const DIRECTOR_ALL_MUTATING_SCOPES: DirectorLockScope[] = [
 ];
 
 export function normalizeDirectorRunMode(runMode: DirectorRunMode | undefined): DirectorRunMode {
-  if (runMode === "full_book_autopilot") {
-    return "full_book_autopilot";
-  }
-  if (runMode === "stage_review") {
-    return "stage_review";
-  }
-  if (runMode === "auto_to_execution") {
-    return "auto_to_execution";
-  }
-  return "auto_to_ready";
+  // Stored execution aliases are accepted for recovery, but director work ends at scripts.
+  return runMode === "stage_review" ? "stage_review" : "auto_to_ready";
 }
 
 export function applyDirectorRunModeContract<T extends {
@@ -131,21 +120,7 @@ export function applyDirectorRunModeContract<T extends {
   autoExecutionPlan?: DirectorAutoExecutionPlan;
   autoApproval?: DirectorAutoApprovalConfig;
 }>(input: T): T & { runMode: DirectorRunMode } {
-  const runMode = normalizeDirectorRunMode(input.runMode);
-  if (!isFullBookAutopilotRunMode(runMode)) {
-    return {
-      ...input,
-      runMode,
-    };
-  }
-  return {
-    ...input,
-    runMode,
-    autoExecutionPlan: input.autoExecutionPlan?.mode === "chapter_range"
-      ? input.autoExecutionPlan
-      : buildFullBookAutopilotExecutionPlan(),
-    autoApproval: buildFullDirectorAutoApprovalConfig(),
-  };
+  return { ...input, runMode: normalizeDirectorRunMode(input.runMode) };
 }
 
 export function normalizeDirectorTargetChapterCount(value: number | null | undefined, fallback = 80): number {

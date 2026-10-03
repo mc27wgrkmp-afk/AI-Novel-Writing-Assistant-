@@ -234,7 +234,7 @@ function createVolumeDetailSystemPrompt(detailMode: VolumeChapterDetailPromptInp
   }
   return [
     "你是资深网文章节编辑。",
-    "当前任务是生成可直接交给正文生成器的章节执行合同。",
+    "当前任务是为作者生成可直接据此写作的章节剧本，不生成小说正文。",
     "只输出严格 JSON，且只包含 taskSheet、readerExperience、sceneCards 三个字段。",
     "taskSheet 是给用户读的简洁执行摘要，需要覆盖情绪基调、冲突对象、关键推进和收尾要求。",
     "readerExperience 是本章唯一的读者体验合同，必须包含 readerQuestion、promisedReward、rewardLevel、protagonistWant、primaryResistance、keyTurn、emotionalShift、informationReveal、netChange、inheritedHookResponsibilities、endingHook。",
@@ -243,6 +243,11 @@ function createVolumeDetailSystemPrompt(detailMode: VolumeChapterDetailPromptInp
     "promisedReward 与 netChange 必须是读者在正文中能看见的回报和变化，不能写成作者意图或抽象主题。",
     "sceneCards 必须是 3-8 个场景卡数组，每个场景卡都必须包含 key、title、purpose、mustAdvance、mustPreserve、entryState、exitState、forbiddenExpansion、targetWordCount、resistance、turn、emotionalShift、readerValue。",
     "每个场景都必须有具体阻力和转折；readerValue 要说明该场景给读者带来的推进、揭示、情绪或关系价值。",
+    "每张场景卡的 entryState 要交代场景地点、在场人物和人物当前目标；mustAdvance 要按顺序写清实际行动、遇到的阻碍、作出的选择及结果，不能只写情绪或创作要求。",
+    "exitState 必须说明行动结果怎样改变人物可采取的下一步；蜂鸣更响、恐惧加重等感受变化不能单独充当本场事件结果。",
+    "新增人物、道具和信息必须在场景中安排进入、发现、取得或获知的过程；不得把尚未发生的获取写成既成事实。",
+    "章节边界约束的是后续真相与里程碑，不应禁止本章必要的正常行动；若现有边界导致连续摸索却无结果，明确指出需要调整的上游章节规划，不靠重复尝试或拉长描写凑篇幅。",
+    "这是交给作者的计划，未写成正文的事件只属于拟发生事项，不得作为已经发生的事实写入连续性状态；不输出正文、长对白或仿成稿段落。",
     "sceneCards 必须完整覆盖整章推进和结尾 hook，不要把整章压成一个场景。",
     "当前章节的 title、summary、purpose、exclusiveEvent、endingState、nextChapterEntryState、conflictLevel、revealLevel、mustAvoid、payoffRefs 共同组成了本章硬边界合同。taskSheet 和 sceneCards 只能执行当前章合同，不能改写或覆盖它。",
     "你必须把 chapter_neighbors 视为相邻章边界提示：上一章已经完成的关键首次事件不能在本章重写一次，下一章标题或摘要中的关键首次事件也不能提前写进本章。",
@@ -273,15 +278,20 @@ function createExecutionContractSystemPromptGarbledBackup(): string {
 function createExecutionContractSystemPrompt(): string {
   return [
     "你是资深网文章节编辑。",
-    "当前任务是一次性生成可直接交给写作器的章节执行合同。",
+    "当前任务是一次性生成供作者写作使用的章节剧本与场景拆解，不生成小说正文。",
     "若局部设定、行动或场景衔接冲突，优先保留已保存大纲主线、既定世界规则与已发生事实，自行选择因果完整且改动最小的方向，直接修正任务单和场景卡。不要把选择题留给用户，不新增免疫能力或临时规则来绕过冲突。",
     "若上下文提供上一版合同和修复意见，只调整冲突涉及的动作、时机及衔接，保留其他内容，并确保任务单、场景卡与读者体验合同彼此一致。",
     "只输出严格 JSON，必须同时包含 purpose、exclusiveEvent、endingState、nextChapterEntryState、conflictLevel、revealLevel、targetWordCount、mustAvoid、payoffRefs、taskSheet、readerExperience、sceneCards。",
     "purpose 用一句话说明本章到底要推进什么，不要写成摘要复述。",
     "exclusiveEvent / endingState / nextChapterEntryState 等字段不可缺失，它们是章节的硬边界合同。",
-    "taskSheet 是给正文写作器的简洁执行指令，sceneCards 是 3-8 个场景卡的执行拆解。",
+    "taskSheet 是给作者阅读的章节剧本摘要，sceneCards 是 3-8 个按发生顺序排列的场景拆解。",
     "readerExperience 是本章唯一的读者体验合同，必须完整包含 readerQuestion、promisedReward、rewardLevel、protagonistWant、primaryResistance、keyTurn、emotionalShift、informationReveal、netChange、inheritedHookResponsibilities、endingHook。",
     "rewardLevel 只能使用 setup、partial、major；promisedReward 和 netChange 必须能在正文中被读者直接感知。",
+    "每张场景卡的 entryState 要交代场景地点、在场人物和人物当前目标；mustAdvance 要按顺序写清实际行动、遇到的阻碍、作出的选择及结果，不能只写情绪或创作要求。",
+    "exitState 必须说明行动结果怎样改变人物可采取的下一步；蜂鸣更响、恐惧加重等感受变化不能单独充当本场事件结果。",
+    "新增人物、道具和信息必须在场景中安排进入、发现、取得或获知的过程；不得把尚未发生的获取写成既成事实。",
+    "章节边界约束的是后续真相与里程碑，不应禁止本章必要的正常行动；若现有边界导致连续摸索却无结果，明确指出需要调整的上游章节规划，不靠重复尝试或拉长描写凑篇幅。",
+    "这是交给作者的计划，未写成正文的事件只属于拟发生事项，不得作为已经发生的事实写入连续性状态；不输出正文、长对白或仿成稿段落。",
     "sceneCards 除原字段外还必须包含 resistance、turn、emotionalShift、readerValue，确保每个场景都有阻力、转折和读者价值。",
     "taskSheet 和 sceneCards 只能执行当前章的合同，不得提前占用相邻章的一次性事件，也不得重写上一章已经完成的里程碑。",
     "如果 conflict_level_curve 标出用户锚定的 conflictLevel，该数值是硬约束，不得改写。",
@@ -356,7 +366,7 @@ export const volumeChapterTaskSheetPrompt: PromptAsset<
   ReturnType<typeof createChapterTaskSheetSchema>["_output"]
 > = {
   id: "novel.volume.chapter_task_sheet",
-  version: "v3",
+  version: "v4",
   taskType: "planner",
   mode: "structured",
   language: "zh",
@@ -377,7 +387,7 @@ export const volumeChapterExecutionContractPrompt: PromptAsset<
   ReturnType<typeof createChapterExecutionContractSchema>["_output"]
 > = {
   id: "novel.volume.chapter_execution_contract",
-  version: "v3",
+  version: "v4",
   taskType: "planner",
   mode: "structured",
   language: "zh",

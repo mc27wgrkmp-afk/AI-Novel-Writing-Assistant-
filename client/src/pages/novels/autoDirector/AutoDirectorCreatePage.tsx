@@ -363,15 +363,10 @@ function AutoDirectorCreatePage() {
     normalizedTaskId,
   ]);
   const createdNovelId = controller.directorTask?.resumeTarget?.novelId?.trim() ?? "";
-  const enterSimpleMutation = useMutation({
-    mutationFn: () => setNovelCreationExperience(createdNovelId, "simple"),
-    onSuccess: () => navigate(`/novels/${createdNovelId}/simple`, { replace: true }),
-    onError: (error) => toast.error(error instanceof Error ? error.message : "进入简易模式失败，请重试。"),
-  });
   const enterProfessionalMutation = useMutation({
     mutationFn: () => setNovelCreationExperience(createdNovelId, "professional"),
     onSuccess: () => navigate(`/novels/${createdNovelId}/edit`, { replace: true }),
-    onError: (error) => toast.error(error instanceof Error ? error.message : "进入专业模式失败，请重试。"),
+    onError: (error) => toast.error(error instanceof Error ? error.message : "打开写作工作台失败，请重试。"),
   });
 
   useEffect(() => {
@@ -583,7 +578,7 @@ function AutoDirectorCreatePage() {
               : referenceStyleProfileQuery.isError
                 ? "拆书结论已带入；参考写法暂未完成，可继续开书并稍后补充。"
                 : resolvedInitialStyleProfileId
-                  ? "参考写法会随项目进入后续正文生成。"
+                  ? "参考写法会用于大纲和章节剧本，供你写作时参考。"
                   : "拆书结论已带入，可以继续设置。"}
           </div>
         </div>
@@ -591,21 +586,18 @@ function AutoDirectorCreatePage() {
       {showSummaryBar ? (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <div className="text-2xl font-semibold tracking-normal text-foreground">AI 自动导演创建</div>
+            <div className="text-2xl font-semibold tracking-normal text-foreground">AI 大纲与剧本规划</div>
             <div className="mt-1 text-sm leading-6 text-muted-foreground">
-              从一个起始想法开始，AI 会持续准备创作资源；项目建立后即可打开查看已完成成果。
+              从起始想法准备大纲、角色和章节剧本；打开工作台查看成果并写正文。
             </div>
           </div>
           <div className="flex flex-wrap items-end gap-3 sm:justify-end">
               {createdNovelId ? (
                 <div className="space-y-1.5">
-                  <div className="text-xs font-medium text-muted-foreground">选择创作界面</div>
-                  <div className="flex items-center gap-1 rounded-lg bg-muted/55 p-1" role="group" aria-label="选择创作模式">
-                    <Button type="button" size="sm" variant="secondary" disabled={enterSimpleMutation.isPending} onClick={() => enterSimpleMutation.mutate()}>
-                      {enterSimpleMutation.isPending ? "正在打开…" : "简易模式"}
-                    </Button>
+                  <div className="text-xs font-medium text-muted-foreground">查看剧本并写作</div>
+                  <div className="flex items-center gap-1 rounded-lg bg-muted/55 p-1" role="group" aria-label="打开写作工作台">
                     <Button type="button" size="sm" variant="secondary" disabled={enterProfessionalMutation.isPending} onClick={() => enterProfessionalMutation.mutate()}>
-                      {enterProfessionalMutation.isPending ? "正在打开…" : "专业模式"}
+                      {enterProfessionalMutation.isPending ? "正在打开…" : "写作工作台"}
                     </Button>
                   </div>
               </div>

@@ -1,3 +1,4 @@
+import { assertAiProseGenerationAllowed } from "../authoring";
 import type { BaseMessageChunk } from "@langchain/core/messages";
 import { prisma } from "../../../../db/prisma";
 import { AppError } from "../../../../middleware/errorHandler";
@@ -92,6 +93,7 @@ export class ChapterRegenerationService {
   }
 
   async createStream(novelId: string, chapterId: string, options: ChapterRuntimeRequestInput = {}) {
+    assertAiProseGenerationAllowed();
     const previous = await this.deps.claim(novelId, chapterId);
     let committed = false;
     let released = false;

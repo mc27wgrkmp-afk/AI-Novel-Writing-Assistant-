@@ -1,3 +1,4 @@
+import { assertAiProseGenerationAllowed } from "./production/authoring";
 import crypto from "node:crypto";
 import { DIRECTOR_ISSUE_GOVERNANCE_VERSION, directorIssuePolicySchema } from "@ai-novel/shared/types/directorIssue";
 import { prisma } from "../../db/prisma";
@@ -249,6 +250,7 @@ export class NovelCorePipelineService {
   }
 
   async resumePipelineJob(jobId: string): Promise<void> {
+    assertAiProseGenerationAllowed();
     const job = await prisma.generationJob.findUnique({
       where: { id: jobId },
       select: {
@@ -303,6 +305,7 @@ export class NovelCorePipelineService {
   }
 
   async startPipelineJob(novelId: string, options: PipelineRunOptions) {
+    assertAiProseGenerationAllowed();
     const rangeKey = this.buildRangeKey(novelId, options.startOrder, options.endOrder);
     return this.withStartLock(rangeKey, async () => {
       const maxRetries = clampPipelineMaxRetries(options.maxRetries);
@@ -438,6 +441,7 @@ export class NovelCorePipelineService {
   }
 
   async retryPipelineJob(jobId: string) {
+    assertAiProseGenerationAllowed();
     const job = await prisma.generationJob.findUnique({
       where: { id: jobId },
     });
