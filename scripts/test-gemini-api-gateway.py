@@ -1,4 +1,5 @@
 """Offline integration tests: real SDK retry decorators, local HTTP, no Google calls."""
+import time
 import asyncio
 from contextlib import asynccontextmanager
 import json
@@ -57,21 +58,21 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
 
 
 class GatewayTests(unittest.TestCase):
-    def test_cookie_renewal_auth_failure_persists_pause_without_recovery(self):
+    def test_cookie_renewal_auth_failure_persists_cooldown(self):
         with tempfile.TemporaryDirectory() as directory:
             state = Path(directory) / 'throttle.json'
             backend = HanaokaBackend({}, directory, {})
             backend.client = SimpleNamespace(_running=True, cookies={}, _live_client=object(), close=AsyncMock())
-            throttle = GatewayThrottle({'request_interval_sec': 0, 'failure_cooldown_sec': 0}, state)
+            throttle = GatewayThrottle({'request_interval_sec': 0, 'failure_cooldown_sec': 900}, state)
             try:
                 with patch('gemini_gateway.hanaoka.rotate_1psidts', new_callable=AsyncMock) as rotate:
                     rotate.side_effect = AuthError('private')
-                    with self.assertRaisesRegex(RuntimeError, 'Gemini paused'):
+                    with self.assertRaisesRegex(RuntimeError, 'cooling down'):
                         throttle.limit(lambda: backend.run(backend.renew_async()))()
-                    with self.assertRaisesRegex(RuntimeError, 'manual recovery'):
+                    with self.assertRaisesRegex(RuntimeError, 'cooling down'):
                         throttle.limit(lambda: backend.run(backend.renew_async()))()
                     self.assertEqual(rotate.await_count, 1)
-                    self.assertTrue(json.loads(state.read_text())['verification_required'])
+                    self.assertFalse(json.loads(state.read_text())['verification_required'])
             finally:
                 backend.close()
 
@@ -84,23 +85,23 @@ class GatewayTests(unittest.TestCase):
                                     close=AsyncMock(), generate_content=AsyncMock())
             try:
                 with patch('gemini_gateway.hanaoka.ConservativeClient', return_value=guest):
-                    with self.assertRaisesRegex(RuntimeError, 'Gemini paused'):
+                    with self.assertRaisesRegex(RuntimeError, 'cooling down'):
                         backend.generate('test', 'gemini-flash')
                 guest.generate_content.assert_not_called()
                 self.assertFalse(backend.generation_verified)
             finally:
                 backend.close()
 
-    def test_typed_and_http_status_errors_pause_without_leaking_credentials(self):
+    def test_typed_and_http_status_errors_cool_without_leaking_credentials(self):
         for error in (AuthError('private-secret'), APIError('Status: 429 private-secret'), APIError('captcha private-secret')):
             throttle = GatewayThrottle({'request_interval_sec': 0})
             def fail():
                 raise safe_error(error)
-            with self.assertRaisesRegex(RuntimeError, 'verification required') as caught:
+            with self.assertRaisesRegex(RuntimeError, 'cooling down') as caught:
                 throttle.limit(fail)()
             self.assertNotIn('private-secret', str(caught.exception))
             self.assertIn(type(error).__name__, str(caught.exception))
-            self.assertTrue(throttle.verification_required)
+            self.assertFalse(throttle.verification_required)
 
     def test_old_flash_alias_resolves_to_live_account_model_and_does_not_fallback_to_pro(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -118,11 +119,11 @@ class GatewayTests(unittest.TestCase):
             finally:
                 backend.close()
 
-    def test_http_listing_and_paused_generation_never_initialize_upstream(self):
+    def test_http_listing_and_cooling_generation_never_initialize_upstream(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory)
             state = path / 'state.json'
-            state.write_text(json.dumps({'verification_required': True, 'next_at': 0, 'blocked_until': 0}))
+            state.write_text(json.dumps({'verification_required': True, 'next_at': 0, 'blocked_until': time.time() + 900}))
             config = path / 'config.json'
             config.write_text(json.dumps({'log_requests': False, 'api_keys': [], 'throttle_state_file': str(state)}))
             with patch('gemini_gateway.http.HanaokaBackend') as factory:
@@ -146,9 +147,9 @@ class GatewayTests(unittest.TestCase):
                     with self.assertRaises(urllib.error.HTTPError) as caught:
                         urllib.request.urlopen(request)
                     self.assertEqual(caught.exception.code, 502)
-                    self.assertIn('Gemini paused', caught.exception.read().decode())
+                    self.assertIn('cooling down', caught.exception.read().decode())
                     backend.generate.assert_not_called()
-                    self.assertTrue(json.loads(state.read_text())['verification_required'])
+                    self.assertFalse(json.loads(state.read_text())['verification_required'])
                 finally:
                     server.shutdown()
                     server.server_close()

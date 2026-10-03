@@ -34,7 +34,7 @@ test("paused gateway tests the selected model once and stops all later probes", 
   assert.equal(calls[0].model, "gemini-3.6-flash");
   assert.equal(structuredCalls, 0);
   assert.equal(result.structured, null);
-  assert.match(result.plain.error, /切换 Gemini 型号无法解除暂停/);
+  assert.match(result.plain.error, /重启网关以切换为冷却恢复/);
 });
 
 test("cooldown and new upstream rejection also stop protocol and format retries", async () => {

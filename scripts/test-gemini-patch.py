@@ -89,7 +89,7 @@ class GatewayPatchTest(unittest.TestCase):
         try:
             with tempfile.TemporaryDirectory() as directory:
                 state = Path(directory) / 'throttle.json'
-                gateway.CONFIG.update(request_interval_sec=0, failure_cooldown_sec=0,
+                gateway.CONFIG.update(request_interval_sec=0, failure_cooldown_sec=900,
                                       throttle_state_file=str(state))
                 gateway._factory_throttle = None
                 calls = []
@@ -100,9 +100,9 @@ class GatewayPatchTest(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, '1060'):
                     rejected()
                 self.assertEqual(gateway._factory_throttle.path, state)
-                self.assertTrue(json.loads(state.read_text())['verification_required'])
+                self.assertFalse(json.loads(state.read_text())['verification_required'])
                 gateway._factory_throttle = None  # simulate a restarted gateway
-                with self.assertRaisesRegex(RuntimeError, 'Gemini paused'):
+                with self.assertRaisesRegex(RuntimeError, 'cooling down'):
                     rejected()
                 self.assertEqual(calls, [1])
         finally:

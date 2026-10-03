@@ -18,11 +18,12 @@ class DiagnosisTest(unittest.TestCase):
     def test_generation_probe_keeps_known_error_type_without_private_message(self):
         local = MagicMock()
         local.open.side_effect = urllib.error.HTTPError('http://127.0.0.1/', 502, 'failed', {},
-            io.BytesIO(b'Gemini paused: verification required (AuthError); private-cookie'))
+            io.BytesIO(b'Gateway cooling down after upstream failure; upstream restriction (AuthError); private-cookie'))
         report = {}
         diagnosis.probe_generation({}, local, 'http://127.0.0.1:8081/v1', {}, report)
         self.assertEqual(report['generation']['upstreamErrorType'], 'AuthError')
-        self.assertTrue(report['generation']['manualRecoveryRequired'])
+        self.assertFalse(report['generation']['manualRecoveryRequired'])
+        self.assertTrue(report['generation']['coolingDown'])
         self.assertNotIn('private-cookie', str(report))
 
     def test_hanaoka_offline_gateway_diagnosis_never_falls_back_to_google(self):

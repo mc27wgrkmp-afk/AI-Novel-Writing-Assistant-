@@ -2,7 +2,6 @@
 import functools
 import json
 import os
-import re
 from pathlib import Path
 import threading
 import time
@@ -20,7 +19,9 @@ class GatewayThrottle:
                 state = json.loads(self.path.read_text())
                 self.next_at = max(self.next_at, float(state.get('next_at', 0)))
                 self.blocked_until = float(state.get('blocked_until', 0))
-                self.verification_required = bool(state.get('verification_required', False))
+                # Retire legacy manual pauses without resetting saved cooldown or spacing.
+                if state.get('verification_required'):
+                    self.save()
             except (ValueError, OSError): pass
 
     def save(self):
@@ -38,8 +39,6 @@ class GatewayThrottle:
         def call(*args, **kwargs):
             with self.lock:
                 now = time.time()
-                if self.verification_required:
-                    raise RuntimeError('Gemini paused: verification or upstream restriction requires manual recovery; automatic retries are disabled')
                 if now < self.blocked_until:
                     raise RuntimeError(f'Gateway cooling down after upstream failure; retry in {max(1, int(self.blocked_until - now))} seconds')
                 time.sleep(max(0, self.next_at - now))
@@ -49,11 +48,6 @@ class GatewayThrottle:
                         raise RuntimeError('Gemini upstream returned empty content')
                     return result
                 except Exception as error:
-                    status = getattr(error, 'code', None) or getattr(getattr(error, 'response', None), 'status_code', None)
-                    # Safety guard on an upstream failure, not an attempt to solve verification.
-                    self.verification_required = status in (401, 403, 429) or bool(re.search(
-                        r'captcha|recaptcha|verification required|/sorry/|unusual traffic|BardErrorInfo|HTTP (?:Error )?(?:401|403|429)',
-                        str(error), re.IGNORECASE))
                     self.blocked_until = time.time() + float(self.config.get('failure_cooldown_sec', 900))
                     raise
                 finally:
@@ -63,11 +57,11 @@ class GatewayThrottle:
 
 if __name__ == '__main__':
     import argparse
-    parser = argparse.ArgumentParser(description='Resume only after manually resolving Gemini verification; retains spacing and cooldown.')
+    parser = argparse.ArgumentParser(description='Migrate legacy pause state while retaining spacing and cooldown.')
     parser.add_argument('--resume-after-verification', action='store_true', required=True)
     parser.add_argument('--state-path', type=Path, default=Path(__file__).resolve().parent.parent / '.local-data/gemini-throttle.json')
     args = parser.parse_args()
     throttle = GatewayThrottle({}, args.state_path)
     throttle.verification_required = False
     throttle.save()
-    print('已清除人工验证暂停标记；请求间隔和冷却仍保留。请重启 Gemini 网关。')
+    print('网关使用冷却恢复；请求间隔和冷却时间保持不变。请重启 Gemini 网关。')
