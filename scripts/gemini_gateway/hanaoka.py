@@ -55,7 +55,7 @@ def safe_error(error):
     status = getattr(getattr(error, 'response', None), 'status_code', None)
     restricted = bool(re.search(r'(?:Status:|HTTP(?: Error)?)\s*(?:401|403|429)\b|captcha|verification required|/sorry/|unusual traffic|BardErrorInfo', str(error), re.IGNORECASE))
     if isinstance(error, (AuthError, TemporarilyBlockedError, UsageLimitExceededError)) or status in (401, 403, 429) or restricted:
-        return RuntimeError('Gemini paused: verification required; login, quota or upstream restriction requires manual recovery; automatic retries are disabled')
+        return RuntimeError('Gemini paused: verification required (' + type(error).__name__ + '); login, quota or upstream restriction requires manual recovery; automatic retries are disabled')
     return RuntimeError('Gemini upstream failed (' + type(error).__name__ + '); automatic retries are disabled')
 
 

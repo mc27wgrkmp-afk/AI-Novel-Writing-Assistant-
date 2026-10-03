@@ -5,6 +5,7 @@ import unittest
 import urllib.error
 import urllib.request
 import json
+import io
 import tempfile
 from unittest.mock import patch, MagicMock
 
@@ -14,6 +15,16 @@ spec.loader.exec_module(diagnosis)
 
 
 class DiagnosisTest(unittest.TestCase):
+    def test_generation_probe_keeps_known_error_type_without_private_message(self):
+        local = MagicMock()
+        local.open.side_effect = urllib.error.HTTPError('http://127.0.0.1/', 502, 'failed', {},
+            io.BytesIO(b'Gemini paused: verification required (AuthError); private-cookie'))
+        report = {}
+        diagnosis.probe_generation({}, local, 'http://127.0.0.1:8081/v1', {}, report)
+        self.assertEqual(report['generation']['upstreamErrorType'], 'AuthError')
+        self.assertTrue(report['generation']['manualRecoveryRequired'])
+        self.assertNotIn('private-cookie', str(report))
+
     def test_hanaoka_offline_gateway_diagnosis_never_falls_back_to_google(self):
         with tempfile.TemporaryDirectory() as directory:
             config = Path(directory) / '.local/gemini-web2api/config.json'

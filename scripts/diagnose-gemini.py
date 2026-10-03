@@ -54,7 +54,9 @@ def probe_generation(config, local, base, headers, report):
     except urllib.error.HTTPError as error:
         body = error.read().decode("utf-8", "replace")
         code = re.search(r"BardErrorInfo\s*\[(\d+)\]", body)
+        error_type = re.search(r'verification required \((AuthError|TemporarilyBlockedError|UsageLimitExceededError|APIError|HTTPError)\)', body)
         report["generation"] = {"httpStatus": error.code, "upstreamCode": int(code[1]) if code else None,
+                                "upstreamErrorType": error_type[1] if error_type else None,
                                 "coolingDown": "cooling down" in body,
                                 "manualRecoveryRequired": "Gemini paused:" in body}
     except Exception as error:

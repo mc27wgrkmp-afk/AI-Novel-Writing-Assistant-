@@ -99,6 +99,7 @@ class GatewayTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, 'verification required') as caught:
                 throttle.limit(fail)()
             self.assertNotIn('private-secret', str(caught.exception))
+            self.assertIn(type(error).__name__, str(caught.exception))
             self.assertTrue(throttle.verification_required)
 
     def test_old_flash_alias_resolves_to_live_account_model_and_does_not_fallback_to_pro(self):
