@@ -17,6 +17,7 @@ import { queryKeys } from "@/api/queryKeys";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { useLLMStore } from "@/store/llmStore";
+import ChapterIssueDetails from "../chapterInsights/ChapterIssueDetails";
 import ChapterEditorDirectorPanel from "./ChapterEditorDirectorPanel";
 import ChapterEditorSidebar from "./ChapterEditorSidebar";
 import ChapterTextEditor from "./ChapterTextEditor";
@@ -161,6 +162,7 @@ export default function ChapterEditorShell(props: ChapterEditorShellProps) {
   const invalidateChapterQueries = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: queryKeys.novels.detail(novelId) }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.novels.chapters(novelId) }),
       queryClient.invalidateQueries({ queryKey: queryKeys.novels.simpleShelf(novelId) }),
       queryClient.invalidateQueries({ queryKey: queryKeys.novels.qualityReport(novelId) }),
       queryClient.invalidateQueries({ queryKey: queryKeys.novels.chapterEditorWorkspace(novelId, chapter?.id ?? "none") }),
@@ -461,15 +463,16 @@ export default function ChapterEditorShell(props: ChapterEditorShellProps) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
-      {qualityDebtDetails ? (
-        <div className="flex shrink-0 flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-950 sm:flex-row sm:items-center sm:justify-between">
+      <ChapterIssueDetails chapter={chapter} editing />
+      {(qualityDebtDetails || chapter.chapterStatus === "needs_repair" || chapter.chapterStatus === "pending_review") ? (
+        <div className="flex shrink-0 flex-col gap-3 px-4 py-2 text-sm sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-start gap-3">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
             <div className="min-w-0 text-sm leading-6">
-              <div className="font-medium">本章正文可继续使用，但还有质量待优化项</div>
+              <div className="font-medium">请核对本章正文，保存修改后重新审校</div>
               <div className="text-xs text-amber-900/80">
-                来源：{formatQualityDebtSource(qualityDebtDetails.source)} · {qualityDebtDetails.reason || "AI 审校发现了局部问题。"}
-                {` · 自动修复：${formatQualityDebtAttempts(qualityDebtDetails)}`}
+                来源：{formatQualityDebtSource(qualityDebtDetails?.source ?? null)} · {qualityDebtDetails?.reason || "AI 审校发现了局部问题。"}
+                {qualityDebtDetails ? ` · 自动修复：${formatQualityDebtAttempts(qualityDebtDetails)}` : null}
               </div>
               {isDirty ? <div className="mt-1 text-xs font-medium">请先保存正文，再让 AI 重新审校确认。</div> : null}
             </div>

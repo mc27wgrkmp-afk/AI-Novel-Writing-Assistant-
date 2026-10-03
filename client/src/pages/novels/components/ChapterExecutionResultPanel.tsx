@@ -7,6 +7,7 @@ import { useEffect, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import ChapterIssueDetails from "./chapterInsights/ChapterIssueDetails";
 import MarkdownViewer from "@/components/common/MarkdownViewer";
 import {
   hasText,
@@ -196,6 +197,8 @@ export default function ChapterExecutionResultPanel(props: ChapterExecutionResul
                 ) : null}
               </div>
             </div>
+
+            <div className="px-5"><ChapterIssueDetails key={selectedChapter.id} chapter={selectedChapter} disabled={isSelectedChapterStreaming || isSelectedChapterRepairStreaming} /></div>
 
             <div ref={contentViewportRef} className="min-h-0 flex-1 overflow-y-auto px-6 py-6 lg:px-10">
               {contentPanelContent ? (

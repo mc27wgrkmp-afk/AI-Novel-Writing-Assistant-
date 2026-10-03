@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import { downloadNovelExport, getNovelChapters, getNovelDetail } from "@/api/novel";
 import { queryKeys } from "@/api/queryKeys";
 import { Button } from "@/components/ui/button";
+import ChapterIssueDetails from "./components/chapterInsights/ChapterIssueDetails";
+import { readChapterQualityDebtDetails } from "@ai-novel/shared/types/chapterQualityLoop";
 import { cn } from "@/lib/utils";
 
 function countWords(content: string | null | undefined): number {
@@ -217,6 +219,8 @@ export default function NovelPreview() {
           <p className="mt-3 text-sm text-muted-foreground">{formatCount(totalWordCount)} 字 · {generatedChapters.length}/{chapters.length} 章已生成</p>
           </div>
 
+          {activeChapter ? <div className="mb-6" key={activeChapter.id}><ChapterIssueDetails chapter={activeChapter} /></div> : null}
+
           <article className="whitespace-pre-wrap text-[17px] leading-[2.15] text-foreground sm:text-[18px]">
             {activeContent || "本章还没有正文。"}
           </article>
@@ -250,7 +254,7 @@ export default function NovelPreview() {
                   <button key={chapter.id} type="button" className={cn("w-full rounded-md px-3 py-3 text-left transition hover:bg-muted/70", activeChapter?.id === chapter.id && "bg-muted")} onClick={() => selectChapter(chapter)}>
                     <div className="flex items-center justify-between gap-3"><span className="text-sm font-medium">第 {chapter.order} 章</span><span className="text-xs text-muted-foreground">{formatCount(countWords(chapter.content))} 字</span></div>
                     <div className="mt-1 truncate text-sm text-muted-foreground">{chapter.title || "未命名章节"}</div>
-                    <div className="mt-1 text-xs text-muted-foreground">{hasContent ? formatChapterStatus(chapter.chapterStatus) : "暂无正文"}</div>
+                    <div className="mt-1 text-xs text-muted-foreground">{hasContent ? (readChapterQualityDebtDetails(chapter.riskFlags) ? "正文已保存 · 有待处理问题" : formatChapterStatus(chapter.chapterStatus)) : "暂无正文"}</div>
                   </button>
                 );
               })}
