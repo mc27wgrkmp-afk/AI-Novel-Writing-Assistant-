@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { SSEFrame } from "@ai-novel/shared/types/api";
 import type { ChapterRuntimePackage } from "@ai-novel/shared/types/chapterRuntime";
+import { readStreamError } from "./sseErrors";
 import { API_BASE_URL } from "@/lib/constants";
 
 interface UseSSEOptions {
@@ -116,7 +117,7 @@ export function useSSE(options?: UseSSEOptions) {
         });
 
         if (!response.ok || !response.body) {
-          throw new Error(`请求失败，状态码 ${response.status}`);
+          throw new Error(await readStreamError(response));
         }
 
         const reader = response.body.getReader();

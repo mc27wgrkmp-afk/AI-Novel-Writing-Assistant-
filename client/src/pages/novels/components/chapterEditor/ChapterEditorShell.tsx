@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { useLLMStore } from "@/store/llmStore";
 import ChapterIssueDetails from "../chapterInsights/ChapterIssueDetails";
+import ChapterRegenerationControls from "./ChapterRegenerationControls";
 import ChapterEditorDirectorPanel from "./ChapterEditorDirectorPanel";
 import ChapterEditorSidebar from "./ChapterEditorSidebar";
 import ChapterTextEditor from "./ChapterTextEditor";
@@ -109,6 +110,7 @@ export default function ChapterEditorShell(props: ChapterEditorShellProps) {
 
   const [contentDraft, setContentDraft] = useState(normalizedChapterContent);
   const [savedContent, setSavedContent] = useState(normalizedChapterContent);
+  const [isRegenerating, setIsRegenerating] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [selection, setSelection] = useState<ChapterEditorSelectionRange | null>(null);
   const [selectionToolbarPosition, setSelectionToolbarPosition] = useState<SelectionToolbarPosition | null>(null);
@@ -182,6 +184,7 @@ export default function ChapterEditorShell(props: ChapterEditorShellProps) {
       if (!chapter) {
         throw new Error("当前未选中章节。");
       }
+      if (isRegenerating) throw new Error("请等待正文重新生成完成，再保存修改。");
       return updateNovelChapter(novelId, chapter.id, { content: nextContent });
     },
     onMutate: () => {
@@ -204,6 +207,7 @@ export default function ChapterEditorShell(props: ChapterEditorShellProps) {
       if (!chapter) {
         throw new Error("当前未选中章节。");
       }
+      if (isRegenerating) throw new Error("请等待正文重新生成完成，再重新审校。");
       if (isDirty || saveMutation.isPending) {
         throw new Error("请先保存正文，再重新审校。");
       }
@@ -231,6 +235,7 @@ export default function ChapterEditorShell(props: ChapterEditorShellProps) {
       if (!chapter) {
         throw new Error("当前未选中章节。");
       }
+      if (isRegenerating) throw new Error("请等待正文重新生成完成，再发起改写。");
       return previewChapterAiRevision(novelId, chapter.id, request);
     },
     onMutate: (request) => {
@@ -290,6 +295,7 @@ export default function ChapterEditorShell(props: ChapterEditorShellProps) {
       if (!chapter || !activeCandidate || !session.targetRange) {
         throw new Error("当前没有可应用的候选版本。");
       }
+      if (isRegenerating) throw new Error("请等待正文重新生成完成，再应用修改。");
       const label = `chapter-editor:${chapter.order}:${session.scope}:${Date.now()}`;
       const nextContent = applyCandidateToContent(contentDraft, session.targetRange, activeCandidate.content);
       await createNovelSnapshot(novelId, {
@@ -361,6 +367,10 @@ export default function ChapterEditorShell(props: ChapterEditorShellProps) {
       task?: ChapterEditorRecommendedTask | null;
     },
   ) => {
+    if (isRegenerating) {
+      toast.error("请等待正文重新生成完成，再发起改写。");
+      return;
+    }
     const resolvedSelection = scope === "selection"
       ? getSelectionTarget(options?.selectionOverride, options?.task)
       : null;
@@ -463,6 +473,14 @@ export default function ChapterEditorShell(props: ChapterEditorShellProps) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
+      <ChapterRegenerationControls
+        novelId={novelId}
+        chapter={chapter}
+        isDirty={isDirty}
+        disabled={saveMutation.isPending || reviewMutation.isPending || previewMutation.isPending || acceptMutation.isPending || props.isRunningFullAudit || props.isGeneratingChapterPlan || props.isReplanningChapter || session.status !== "idle" || chapter.chapterStatus === "generating"}
+        onBusyChange={setIsRegenerating}
+        onCompleted={invalidateChapterQueries}
+      />
       <ChapterIssueDetails chapter={chapter} editing />
       {(qualityDebtDetails || chapter.chapterStatus === "needs_repair" || chapter.chapterStatus === "pending_review") ? (
         <div className="flex shrink-0 flex-col gap-3 px-4 py-2 text-sm sm:flex-row sm:items-center sm:justify-between">
@@ -482,7 +500,7 @@ export default function ChapterEditorShell(props: ChapterEditorShellProps) {
             size="sm"
             variant="outline"
             className="shrink-0 border-amber-300 bg-white/70 hover:bg-white"
-            disabled={isDirty || saveMutation.isPending || reviewMutation.isPending}
+            disabled={isDirty || isRegenerating || saveMutation.isPending || reviewMutation.isPending}
             onClick={() => reviewMutation.mutate()}
           >
             {reviewMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
@@ -498,7 +516,7 @@ export default function ChapterEditorShell(props: ChapterEditorShellProps) {
           wordCount={wordCount}
           saveStatusLabel={headerSaveLabel}
           isDirty={isDirty}
-          isSaving={saveMutation.isPending}
+          isSaving={saveMutation.isPending || isRegenerating}
           selectedDiagnosticId={selectedDiagnosticId}
           onBack={onBack}
           onOpenVersionHistory={onOpenVersionHistory}
@@ -510,7 +528,7 @@ export default function ChapterEditorShell(props: ChapterEditorShellProps) {
         <div className="relative min-h-0 overflow-hidden">
           <ChapterTextEditor
             value={contentDraft}
-            readOnly={session.status !== "idle"}
+            readOnly={session.status !== "idle" || isRegenerating}
             onChange={(next) => {
               setContentDraft(next);
               setSaveStatus("idle");
@@ -532,7 +550,7 @@ export default function ChapterEditorShell(props: ChapterEditorShellProps) {
           <SelectionAIFloatingToolbar
             visible={Boolean(selection && session.status === "idle")}
             position={selectionToolbarPosition}
-            disabled={previewMutation.isPending}
+            disabled={previewMutation.isPending || isRegenerating}
             onRunOperation={handleRunOperation}
           />
         </div>
@@ -548,7 +566,7 @@ export default function ChapterEditorShell(props: ChapterEditorShellProps) {
             revisionInstruction={revisionInstruction}
             canRunSelectionRevision={canRunSelectionRevision}
             currentTargetDescription={currentTargetDescription}
-            isGenerating={previewMutation.isPending}
+            isGenerating={previewMutation.isPending || isRegenerating}
             isApplying={acceptMutation.isPending}
             onInstructionChange={setRevisionInstruction}
             onScopeChange={setRevisionScope}

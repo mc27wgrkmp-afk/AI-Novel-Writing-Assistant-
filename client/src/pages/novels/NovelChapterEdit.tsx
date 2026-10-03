@@ -71,7 +71,7 @@ export default function NovelChapterEdit() {
         </Button>
       </div>
       <ChapterEditorShell
-        key={`${chapter.id}:${chapter.updatedAt}`}
+        key={chapter.id}
         novelId={id}
         chapter={chapter}
         workspace={chapterEditorWorkspaceQuery.data?.data ?? null}
@@ -80,8 +80,8 @@ export default function NovelChapterEdit() {
           : chapterEditorWorkspaceQuery.isError
             ? "error"
             : "ready"}
-        onBack={() => navigate(`/novels/${id}/edit`)}
-        onOpenVersionHistory={() => navigate(`/novels/${id}/edit`)}
+        onBack={() => navigate(`/novels/${id}/edit?stage=chapter&chapterId=${encodeURIComponent(chapterId)}`)}
+        onOpenVersionHistory={() => navigate(`/novels/${id}/edit?stage=history`)}
       />
     </div>
   );

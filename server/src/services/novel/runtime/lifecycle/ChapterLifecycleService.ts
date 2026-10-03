@@ -19,6 +19,50 @@ export class ChapterContentPersistenceError extends Error {
 }
 
 export class ChapterLifecycleService {
+  /** Atomically replaces a claimed regeneration draft without overwriting a concurrent edit. */
+  async saveRegeneratedContent(input: {
+    novelId: string;
+    chapterId: string;
+    content: string;
+    expectedContent: string | null;
+  }): Promise<void> {
+    const content = assertChapterContentNotEmpty(input.content, {
+      novelId: input.novelId,
+      chapterId: input.chapterId,
+      source: "chapter_regeneration_save",
+    });
+    try {
+      const result = await withSqliteRetry(
+        () => prisma.chapter.updateMany({
+          where: {
+            id: input.chapterId,
+            novelId: input.novelId,
+            chapterStatus: "generating",
+            content: input.expectedContent,
+          },
+          data: {
+            content,
+            generationState: "drafted",
+            chapterStatus: "pending_review",
+            qualityScore: null,
+            continuityScore: null,
+            characterScore: null,
+            pacingScore: null,
+            riskFlags: null,
+            repairHistory: null,
+          },
+        }),
+        { label: "chapterLifecycle.saveRegeneratedContent" },
+      );
+      if (result.count !== 1) {
+        throw new Error("章节正文或生成状态已变化，请保留当前正文后重试。");
+      }
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      throw new ChapterContentPersistenceError(input.chapterId, `重新生成正文保存失败：${detail}`);
+    }
+  }
+
   async saveWorkingContent(input: {
     novelId: string;
     chapterId: string;

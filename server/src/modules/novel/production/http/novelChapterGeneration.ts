@@ -6,6 +6,7 @@ import type { ChapterRuntimeCoordinator } from "../../../../services/novel/runti
 import { chapterRuntimeRequestSchema } from "../../../../services/novel/runtime/chapterRuntimeSchema";
 import { stepModuleRunner } from "../../../../services/novel/director/workflowStepRuntime/StepModuleRunner";
 import { DIRECTOR_EXECUTION_STEP_IDS } from "../../../../services/novel/director/workflowStepRuntime/directorWorkflowStepIds";
+import { ChapterRegenerationService } from "../../../../services/novel/production/regeneration";
 
 type ChapterStreamResult = Awaited<ReturnType<ChapterRuntimeCoordinator["createChapterStream"]>>;
 
@@ -24,6 +25,21 @@ export function registerNovelChapterGenerationRoutes(input: RegisterNovelChapter
     chapterParamsSchema,
     forwardBusinessError,
   } = input;
+
+  router.post(
+    "/:id/chapters/:chapterId/regenerate",
+    validate({ params: chapterParamsSchema, body: chapterRuntimeRequestSchema }),
+    async (req, res, next) => {
+      try {
+        const { id, chapterId } = req.params as z.infer<typeof chapterParamsSchema>;
+        const { stream, onDone } = await new ChapterRegenerationService().createStream(id, chapterId, req.body);
+        await streamToSSE(res, stream, onDone);
+      } catch (error) {
+        if (forwardBusinessError(error, next)) return;
+        next(error);
+      }
+    },
+  );
 
   router.post(
     "/:id/chapters/:chapterId/runtime/run",
