@@ -10,6 +10,7 @@ import sys
 import tempfile
 import urllib.request
 from urllib.parse import urlsplit
+from gemini_session_cookies import merge_response_cookies
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -47,7 +48,8 @@ def fetch_page(config, cookie):
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
     })
     with opener.open(request, timeout=20) as response:
-        return response.url, response.read().decode("utf-8", "replace")
+        updated_cookie = merge_response_cookies(cookie, response, request)
+        return response.url, response.read().decode("utf-8", "replace"), updated_cookie
 
 
 def refresh_session(config_path, cookie_header, backup_root, page_loader=fetch_page):
@@ -62,7 +64,14 @@ def refresh_session(config_path, cookie_header, backup_root, page_loader=fetch_p
     sapisid = pairs.get("SAPISID")
     if not sapisid:
         raise ValueError("SAPISID missing")
-    url, html = page_loader(config, cookie)
+    page = page_loader(config, cookie)
+    url, html = page[:2]
+    if len(page) == 3:
+        cookie = page[2]
+        pairs = dict(part.strip().split("=", 1) for part in cookie.split(";") if "=" in part)
+        sapisid = pairs.get("SAPISID")
+        if not sapisid:
+            raise ValueError("updated session missing SAPISID")
     # Only accept the expected HTTPS origin; login/challenge redirects never qualify.
     parsed = urlsplit(url)
     if parsed.scheme != "https" or parsed.hostname != "gemini.google.com" or parsed.port not in (None, 443):

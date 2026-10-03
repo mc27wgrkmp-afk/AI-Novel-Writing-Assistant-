@@ -36,6 +36,7 @@ import sys as _factory_sys
 import threading as _factory_threading
 import functools as _factory_functools
 """ + "_factory_sys.path.insert(0, " + repr(helper_dir) + ")\n" + """from gemini_throttle import GatewayThrottle
+from gemini_session_cookies import persist_response_cookies as _factory_persist_response_cookies
 _factory_throttle = None
 _factory_throttle_init_lock = _factory_threading.Lock()
 
@@ -55,4 +56,12 @@ def _factory_limit(function):
 source = source.replace('class GeminiHandler(BaseHTTPRequestHandler):', injection + 'class GeminiHandler(BaseHTTPRequestHandler):')
 source = source.replace('    @_factory_throttle.limit\n', '').replace('    @_factory_limit\n', '')
 source = source.replace('    def _call_gemini(self,', '    @_factory_limit\n    def _call_gemini(self,')
+path.write_text(source)
+
+# Save accepted Set-Cookie updates before reading generation responses.
+source = path.read_text()
+line = '            return resp.read().decode("utf-8", errors="replace")'
+rotation = '            _factory_persist_response_cookies(CONFIG, resp, req)\n'
+if rotation + line not in source:
+    source = source.replace(line, rotation + line)
 path.write_text(source)

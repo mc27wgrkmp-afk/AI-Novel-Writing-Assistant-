@@ -7,6 +7,7 @@ import sys
 import urllib.error
 import urllib.request
 from urllib.parse import urlsplit
+from gemini_session_cookies import persist_response_cookies
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -81,6 +82,8 @@ def main():
     try:
         with upstream.open(request, timeout=20) as response:
             report["upstreamPage"] = describe_page(response.status, response.url, response.read().decode("utf-8", "replace"))
+            if args.generate and report["upstreamPage"]["sessionTokenPresent"] and not report["upstreamPage"]["signInButton"]:
+                persist_response_cookies(config, response, request)
     except Exception as error:
         report["upstreamPageError"] = error_description(error)
 

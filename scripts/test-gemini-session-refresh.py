@@ -66,6 +66,13 @@ class RefreshTest(unittest.TestCase):
             self.assertEqual(path.stat().st_mode & 0o777, 0o600)
         self.assertEqual(backup.stat().st_mode & 0o777, 0o700)
 
+    def test_refresh_saves_response_cookie_updates_with_validated_page(self):
+        refresh.refresh_session(self.config, "SAPISID=old; SID=keep", self.backups,
+                                lambda *_: ("https://gemini.google.com/u/1/app", '"SNlM0e":"token","cfb2h":"build"', "SAPISID=rotated; SID=keep"))
+        data = json.loads(self.cookie.read_text())
+        self.assertEqual(data["cookie"], "SAPISID=rotated; SID=keep")
+        self.assertEqual(data["sapisid"], "rotated")
+
     def test_failure_output_never_echoes_clipboard_or_exception(self):
         output = io.StringIO()
         with patch("sys.argv", ["refresh-gemini-session.py", "--clipboard"]), patch.object(refresh.sys, "platform", "darwin"), \
