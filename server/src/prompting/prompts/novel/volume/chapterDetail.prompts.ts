@@ -274,6 +274,8 @@ function createExecutionContractSystemPrompt(): string {
   return [
     "你是资深网文章节编辑。",
     "当前任务是一次性生成可直接交给写作器的章节执行合同。",
+    "若局部设定、行动或场景衔接冲突，优先保留已保存大纲主线、既定世界规则与已发生事实，自行选择因果完整且改动最小的方向，直接修正任务单和场景卡。不要把选择题留给用户，不新增免疫能力或临时规则来绕过冲突。",
+    "若上下文提供上一版合同和修复意见，只调整冲突涉及的动作、时机及衔接，保留其他内容，并确保任务单、场景卡与读者体验合同彼此一致。",
     "只输出严格 JSON，必须同时包含 purpose、exclusiveEvent、endingState、nextChapterEntryState、conflictLevel、revealLevel、targetWordCount、mustAvoid、payoffRefs、taskSheet、readerExperience、sceneCards。",
     "purpose 用一句话说明本章到底要推进什么，不要写成摘要复述。",
     "exclusiveEvent / endingState / nextChapterEntryState 等字段不可缺失，它们是章节的硬边界合同。",

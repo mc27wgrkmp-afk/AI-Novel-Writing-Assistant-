@@ -64,6 +64,7 @@ function createSystemPrompt(mode: ChapterTaskSheetQualityPromptInput["mode"]): s
     "还要判断本章是否被塞入过多彼此争夺篇幅的必达义务；如果任务单显示当前章职责已经过载，loadRisk=overloaded，recommendedHandling=replan_window。",
     "如果问题仍可在本章合同内收口，recommendedHandling=repair_contract；只有合同已经足够稳时才用 use_as_is。",
     "如果存在问题，给出面向自动修复器的具体 repairGuidance。",
+    "普通设定或行动因果冲突应使用 repair_contract。以章节既定主线、已有规则和已发生事实为先，选择最合理的一条局部修正方向，给出明确执行指令；不要列多个方向让用户选择，也不要通过新规则或新能力消除矛盾。",
     "",
     "输出严格 JSON，不要 Markdown、注释、解释或额外字段。",
     "顶层只能输出 verdict、safeToSync、loadRisk、recommendedHandling、summary、issues、repairGuidance、confidence。",

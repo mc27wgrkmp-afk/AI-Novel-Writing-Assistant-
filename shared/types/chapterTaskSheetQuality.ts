@@ -55,6 +55,7 @@ export interface ChapterTaskSheetQualityIssue {
 }
 
 export interface ChapterTaskSheetQualityGateResult {
+  recommendedHandling?: "use_as_is" | "repair_contract" | "replan_window";
   status: ChapterTaskSheetQualityStatus;
   canEnterExecution: boolean;
   issues: ChapterTaskSheetQualityIssue[];
@@ -269,6 +270,7 @@ export function mapSemanticAssessmentToQualityGate(
   if (assessment.verdict === "usable" && assessment.safeToSync) {
     return {
       status: "passed",
+      recommendedHandling: assessment.recommendedHandling,
       canEnterExecution: true,
       issues,
       summary: assessment.summary,
@@ -285,6 +287,7 @@ export function mapSemanticAssessmentToQualityGate(
 
   return {
     status,
+    recommendedHandling: assessment.recommendedHandling,
     // 全书自动执行保留语义审校结果供后续正文验收消费，但不为可写的
     // 任务单重复生成整份合同；结构缺失仍由 shape gate 阻断。
     canEnterExecution: mode === "full_book_autopilot",
