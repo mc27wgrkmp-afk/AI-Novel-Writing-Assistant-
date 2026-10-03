@@ -65,3 +65,9 @@ rotation = '            _factory_persist_response_cookies(CONFIG, resp, req)\n'
 if rotation + line not in source:
     source = source.replace(line, rotation + line)
 path.write_text(source)
+
+# The web protocol selects Fast, not a pinned API version. Keep the alias honest.
+source = path.read_text()
+if '"gemini-3.8-flash":' not in source:
+    source = source.replace('MODELS = {', 'MODELS = {\n    "gemini-3.8-flash": {\n        "mode": 1, "think": 4,\n        "desc": "Gemini 3.8 Flash (Web Fast alias; actual version follows upstream rollout)",\n    },', 1)
+path.write_text(source)

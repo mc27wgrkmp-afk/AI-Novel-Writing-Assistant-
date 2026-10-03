@@ -125,8 +125,8 @@ export const PROVIDERS: Record<BuiltinLLMProvider, ProviderConfig> = {
   gemini: {
     name: "Gemini",
     baseURL: "https://generativelanguage.googleapis.com/v1beta/openai",
-    defaultModel: "gemini-2.5-flash",
-    models: ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-3-flash-preview"],
+    defaultModel: "gemini-3.8-flash",
+    models: ["gemini-3.8-flash", "gemini-2.5-flash", "gemini-2.5-pro", "gemini-3-flash-preview"],
     envKey: "GEMINI_API_KEY",
     envBaseURLKey: "GEMINI_BASE_URL",
     envModelKey: "GEMINI_MODEL",

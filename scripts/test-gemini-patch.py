@@ -75,6 +75,13 @@ class GatewayPatchTest(unittest.TestCase):
         self.assertEqual(calls, [1])
         self.assertEqual(self.gateway.CONFIG['retry_attempts'], 1)
 
+    def test_gemini_38_flash_is_listed_and_resolves_to_documented_web_fast_mode(self):
+        self.assertIn('gemini-3.8-flash', self.gateway.MODELS)
+        name, mode, think, error = self.gateway.GeminiHandler._resolve_model(object(), 'gemini-3.8-flash')
+        self.assertEqual((name, mode, think, error), ('gemini-3.8-flash', 1, 4, None))
+        self.assertIn('alias', self.gateway.MODELS[name]['desc'])
+        self.assertNotIn('gemini-3.8-pro', self.gateway.MODELS)
+
     def test_throttle_reads_loaded_config_and_persists_rejection(self):
         gateway = self.gateway
         original_config = dict(gateway.CONFIG)

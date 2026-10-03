@@ -184,6 +184,7 @@ Open-source AI novel writing assistant and long-form production studio.
 
 #### 新增
 
+- 模型设置加入 Gemini 3.8 Flash，作为新建官方 Gemini 配置的默认推荐；本地网关提供同名 Fast 档选项，实际版本以网页版上游为准。
 - 章节正文编辑页新增「重新生成正文」：根据已保存的总纲、世界观、人物、基本原则、细纲与章节剧本重写本章；生成前保留旧稿快照，成功后可重新审校，失败保留原稿。
 - Gemini 本地网关提供会话诊断与剪贴板更新工具，保存前验证登录状态，失败时保留原配置，登录信息仅在本机处理。
 - 模型设置新增 ChatGPT Plus / Pro 账号连接，可用当前账号授权模型进行文本创作，无需 API Key；凭据由 Mac 钥匙串保护。
