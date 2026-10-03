@@ -284,3 +284,15 @@ test("connectivity preserves the OpenAI failure instead of the fallback 404", as
     assert.doesNotMatch(result.structured.error, /Anthropic request failed/);
   } finally { await new Promise(resolve => server.close(resolve)); }
 });
+
+
+test("manual workbench renders every factory prompt without a production input", async () => {
+  const { PromptWorkbenchService } = require("../dist/prompting/PromptWorkbenchService");
+  const service = new PromptWorkbenchService();
+  for (const suffix of ["plan", "write", "review", "patch"]) {
+    const result = await service.preview({ id: `factory.chapter.${suffix}`, version: "v1", executionContext: { entrypoint: "manual_test" } });
+    assert.ok(result.messages.length > 0);
+    assert.match(JSON.stringify(result), /手动测试.*示例/);
+    assert.match(JSON.stringify(result.messages), /陆沉/);
+  }
+});

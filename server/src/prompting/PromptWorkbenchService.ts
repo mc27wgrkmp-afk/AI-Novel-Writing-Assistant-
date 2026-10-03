@@ -1,3 +1,4 @@
+import { createFactoryWorkbenchSample } from "./prompts/factory/factory.workbench";
 import { buildFactoryContextBlocks, type FactoryPromptInput } from "./prompts/factory/factory.prompts";
 import type { BaseMessage, BaseMessageChunk } from "@langchain/core/messages";
 import type { LLMProvider } from "@ai-novel/shared/types/llm";
@@ -507,10 +508,13 @@ export class PromptWorkbenchService {
   }> {
     const asset = getAssetFromPreviewInput(input);
     const prompt = toCatalogItem(asset);
+    const usesFactorySample = asset.id.startsWith("factory.chapter.") && input.promptInput == null;
+    if (usesFactorySample) input.promptInput = createFactoryWorkbenchSample();
     const previewContext = await this.preparePreviewExecutionContext({
       asset,
       executionContext: input.executionContext,
     });
+    if (usesFactorySample) previewContext.notes.push("手动测试使用示例章节资料，非当前小说的生产上下文。");
     if (asset.id.startsWith("factory.chapter.") && input.promptInput) {
       const factoryBlocks = buildFactoryContextBlocks(input.promptInput as FactoryPromptInput);
       previewContext.executionContext = {

@@ -165,6 +165,8 @@ Open-source AI novel writing assistant and long-form production studio.
 
 #### 修复
 
+- 章节生产提示词在工作台手动预览和测试时提供明确标注的示例资料，修复缺少章节输入导致无法打开预览的问题。
+
 - 模型检测失败时保留首选接口的原始错误，避免被备用 Anthropic 接口的 404 覆盖；空正文不再判为连通成功。
 - Gemini 本地网关识别上游嵌套拒绝信息，避免将拒绝请求显示成成功的空回复。
 
