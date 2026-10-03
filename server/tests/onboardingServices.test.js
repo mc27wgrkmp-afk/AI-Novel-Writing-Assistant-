@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 const { prisma } = require("../dist/db/prisma.js");
 const { secretStore } = require("../dist/services/settings/secretStore/index.js");
 const { llmConnectivityService } = require("../dist/llm/connectivity.js");
+const { chatGPTPlanService } = require("../dist/platform/llm/chatgptPlan/ChatGPTPlanService.js");
 const quickSetup = require("../dist/modules/setup/onboarding/application/QuickSetupService.js");
 const firstNovel = require("../dist/modules/setup/onboarding/application/FirstNovelOnboardingService.js");
 
@@ -13,112 +14,143 @@ function restore(target, originals) {
   }
 }
 
-test("quick setup applies a verified model to every core creative route without exposing the key", async () => {
-  const secretOriginals = {
-    getProvider: secretStore.getProvider,
-    upsertProvider: secretStore.upsertProvider,
-    listProviders: secretStore.listProviders,
-  };
-  const connectivityOriginal = llmConnectivityService.testConnection;
-  const appSettingOriginals = {
-    findUnique: prisma.appSetting.findUnique,
-    upsert: prisma.appSetting.upsert,
-  };
-  const routeOriginals = {
-    findUnique: prisma.modelRouteConfig.findUnique,
-    upsert: prisma.modelRouteConfig.upsert,
-  };
-  const savedRoutes = new Map();
-  let savedProvider = null;
-  let selection = null;
-
-  secretStore.getProvider = async () => null;
-  secretStore.upsertProvider = async (provider, input) => {
-    savedProvider = { provider, ...input };
-    return {
-      provider,
-      displayName: input.displayName ?? null,
-      key: input.key ?? null,
-      model: input.model ?? null,
-      baseURL: input.baseURL ?? null,
-      isActive: true,
-      reasoningEnabled: true,
-      concurrencyLimit: 0,
-      requestIntervalMs: 0,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+for (const providerUnderTest of ["deepseek", "chatgpt_plus"]) {
+  test(`quick setup applies verified ${providerUnderTest} to every creative route without exposing the key`, async () => {
+    const planOriginals = { getSession: chatGPTPlanService.getSession, listModels: chatGPTPlanService.listModels, getCachedModels: chatGPTPlanService.getCachedModels };
+    chatGPTPlanService.getSession = async () => ({ status: "connected", sharing: true });
+    chatGPTPlanService.listModels = async () => [{ slug: "plan-text-model", displayName: "Plan text" }];
+    chatGPTPlanService.getCachedModels = () => [{ slug: "plan-text-model", displayName: "Plan text" }];
+    const secretOriginals = {
+      getProvider: secretStore.getProvider,
+      upsertProvider: secretStore.upsertProvider,
+      listProviders: secretStore.listProviders,
     };
-  };
-  secretStore.listProviders = async () => savedProvider ? [{
-    ...savedProvider,
-    displayName: null,
-    isActive: true,
-    reasoningEnabled: true,
-    concurrencyLimit: 0,
-    requestIntervalMs: 0,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  }] : [];
-  llmConnectivityService.testConnection = async ({ provider, model }) => ({
-    provider,
-    model,
-    ok: true,
-    latency: 5,
-    error: null,
-    requestProtocol: "openai_compatible",
-    plain: {
-      ok: true,
-      latency: 3,
-      error: null,
-      requestProtocol: "openai_compatible",
-    },
-    structured: {
-      ok: true,
-      latency: 5,
-      error: null,
-      requestProtocol: "openai_compatible",
-      strategy: "json_object",
-      reasoningForcedOff: false,
-      fallbackAvailable: false,
-      fallbackUsed: false,
-      errorCategory: null,
-      nativeJsonObject: true,
-      nativeJsonSchema: false,
-      profileFamily: "openai",
-    },
-  });
-  prisma.appSetting.findUnique = async () => selection
-    ? { key: "llm.currentSelection", value: selection }
-    : null;
-  prisma.appSetting.upsert = async ({ update }) => {
-    selection = update.value;
-    return { key: "llm.currentSelection", value: selection };
-  };
-  prisma.modelRouteConfig.findUnique = async ({ where }) => savedRoutes.get(where.taskType) ?? null;
-  prisma.modelRouteConfig.upsert = async ({ where, create, update }) => {
-    const value = { ...(savedRoutes.get(where.taskType) ? update : create) };
-    savedRoutes.set(where.taskType, value);
-    return value;
-  };
+    const connectivityOriginal = llmConnectivityService.testConnection;
+    const appSettingOriginals = {
+      findUnique: prisma.appSetting.findUnique,
+      upsert: prisma.appSetting.upsert,
+    };
+    const routeOriginals = {
+      findUnique: prisma.modelRouteConfig.findUnique,
+      upsert: prisma.modelRouteConfig.upsert,
+    };
+    const savedRoutes = new Map();
+    let savedProvider = null;
+    let selection = null;
+    let probedBaseURL = null;
 
+    secretStore.getProvider = async () => null;
+    secretStore.upsertProvider = async (provider, input) => {
+      savedProvider = { provider, ...input };
+      return {
+          provider,
+          displayName: input.displayName ?? null,
+          key: input.key ?? null,
+          model: input.model ?? null,
+          baseURL: input.baseURL ?? null,
+          isActive: true,
+          reasoningEnabled: true,
+          concurrencyLimit: 0,
+          requestIntervalMs: 0,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+      };
+      secretStore.listProviders = async () => savedProvider ? [{
+        ...savedProvider,
+        displayName: null,
+        isActive: true,
+        reasoningEnabled: true,
+        concurrencyLimit: 0,
+        requestIntervalMs: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }] : [];
+    llmConnectivityService.testConnection = async ({ provider, model, baseURL }) => {
+      probedBaseURL = baseURL;
+      return {
+        provider,
+        model,
+        ok: true,
+        latency: 5,
+        error: null,
+        requestProtocol: "openai_compatible",
+        plain: { ok: true, latency: 3, error: null, requestProtocol: "openai_compatible" },
+        structured: {
+          ok: true,
+          latency: 5,
+          error: null,
+          requestProtocol: "openai_compatible",
+          strategy: "json_object",
+          reasoningForcedOff: false,
+          fallbackAvailable: false,
+          fallbackUsed: false,
+          errorCategory: null,
+          nativeJsonObject: true,
+          nativeJsonSchema: false,
+          profileFamily: "openai",
+        },
+      };
+    };
+    prisma.appSetting.findUnique = async () => selection
+      ? { key: "llm.currentSelection", value: selection }
+      : null;
+    prisma.appSetting.upsert = async ({ update }) => {
+      selection = update.value;
+      return { key: "llm.currentSelection", value: selection };
+    };
+    prisma.modelRouteConfig.findUnique = async ({ where }) => savedRoutes.get(where.taskType) ?? null;
+    prisma.modelRouteConfig.upsert = async ({ where, create, update }) => {
+      const value = { ...(savedRoutes.get(where.taskType) ? update : create) };
+      savedRoutes.set(where.taskType, value);
+      return value;
+    };
+
+    try {
+      const result = await quickSetup.completeQuickSetup({
+        providerKind: "builtin",
+        provider: providerUnderTest,
+        apiKey: "secret-test-key",
+        baseURL: providerUnderTest === "chatgpt_plus" ? "https://untrusted.invalid/v1" : "https://api.deepseek.com/v1",
+        model: providerUnderTest === "chatgpt_plus" ? "plan-text-model" : "deepseek-chat",
+      });
+      assert.equal(result.status.readyForCreation, true);
+      assert.equal(result.status.routeCoverage.configured, result.status.routeCoverage.total);
+      assert.equal(savedRoutes.size, result.status.routeCoverage.total);
+      assert.equal(result.provider, providerUnderTest);
+      if (providerUnderTest === "chatgpt_plus") {
+        assert.equal(savedProvider.key, null);
+        assert.match(probedBaseURL, /^http:\/\/127\.0\.0\.1:\d+\/api\/chatgpt-plan\/v1$/);
+        chatGPTPlanService.getSession = async () => ({ status: "connected", sharing: false });
+        const disconnectedStatus = await quickSetup.getQuickSetupStatus();
+        assert.equal(disconnectedStatus.readyForCreation, false);
+        assert.equal(disconnectedStatus.routeCoverage.configured, 0);
+      }
+      assert.equal(JSON.stringify(result).includes("secret-test-key"), false);
+    } finally {
+      restore(chatGPTPlanService, planOriginals);
+      restore(secretStore, secretOriginals);
+      llmConnectivityService.testConnection = connectivityOriginal;
+      restore(prisma.appSetting, appSettingOriginals);
+      restore(prisma.modelRouteConfig, routeOriginals);
+    }
+  });
+
+}
+
+test("quick setup rejects ChatGPT identity-only authorization before probing or saving", async () => {
+  const getSession = chatGPTPlanService.getSession;
+  const getProvider = secretStore.getProvider;
+  const probe = llmConnectivityService.testConnection;
+  chatGPTPlanService.getSession = async () => ({ status: "connected", sharing: false });
+  secretStore.getProvider = async () => null;
+  llmConnectivityService.testConnection = async () => assert.fail("unauthorized plan must not generate");
   try {
-    const result = await quickSetup.completeQuickSetup({
-      providerKind: "builtin",
-      provider: "deepseek",
-      apiKey: "secret-test-key",
-      baseURL: "https://api.deepseek.com/v1",
-      model: "deepseek-chat",
-    });
-    assert.equal(result.status.readyForCreation, true);
-    assert.equal(result.status.routeCoverage.configured, result.status.routeCoverage.total);
-    assert.equal(savedRoutes.size, result.status.routeCoverage.total);
-    assert.equal(result.provider, "deepseek");
-    assert.equal(JSON.stringify(result).includes("secret-test-key"), false);
+    await assert.rejects(quickSetup.completeQuickSetup({ providerKind: "builtin", provider: "chatgpt_plus", model: "plan-text-model" }), /授权/);
   } finally {
-    restore(secretStore, secretOriginals);
-    llmConnectivityService.testConnection = connectivityOriginal;
-    restore(prisma.appSetting, appSettingOriginals);
-    restore(prisma.modelRouteConfig, routeOriginals);
+    chatGPTPlanService.getSession = getSession;
+    secretStore.getProvider = getProvider;
+    llmConnectivityService.testConnection = probe;
   }
 });
 

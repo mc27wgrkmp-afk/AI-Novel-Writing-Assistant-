@@ -47,7 +47,7 @@ function launch(args) {
 }
 process.on("SIGINT", () => stop());
 process.on("SIGTERM", () => stop());
-launch(["--filter", "@ai-novel/server", "exec", "ts-node-dev", "--respawn", "--transpile-only", "src/app.ts"]);
+launch(["--filter", "@ai-novel/server", "exec", "ts-node-dev", "--respawn", "--exit-child", "--transpile-only", "src/app.ts"]);
 launch(["--filter", "@ai-novel/client", "exec", "vite", "--host", "127.0.0.1", "--port", webPort, "--strictPort"]);
 console.log(`章节生产页：http://127.0.0.1:${webPort}/factory`);
 console.log("正文服务与审核模型请在模型配置页填写；点击生成后才会发送故事材料。");

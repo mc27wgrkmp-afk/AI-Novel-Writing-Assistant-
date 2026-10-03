@@ -28,6 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useLLMStore } from "@/store/llmStore";
+import ChatGPTPlanConnection from "@/pages/settings/components/ChatGPTPlanConnection";
 import {
   shouldInitializeProviderSelection,
   shouldShowFirstNovelHandoff,
@@ -95,9 +96,9 @@ export default function QuickSetupDialog(props: QuickSetupDialogProps) {
     [props.status?.providers, props.status?.selectedProvider],
   );
   const preferredProvider = selectedProvider ?? recommendedProvider;
-  const providerChoices: QuickSetupProviderOption[] = showAllProviderChoices
+  const providerChoices: QuickSetupProviderOption[] = (showAllProviderChoices
     ? props.status?.providers ?? []
-    : preferredProvider ? [preferredProvider] : [];
+    : preferredProvider ? [preferredProvider] : []).filter((provider) => provider.id !== "chatgpt_plus");
   const modelOptions = form.providerKind === "custom"
     ? customModels
     : selectedProvider?.models ?? [];
@@ -194,7 +195,7 @@ export default function QuickSetupDialog(props: QuickSetupDialogProps) {
     }
   };
 
-  const canContinueProvider = form.providerKind === "custom" || Boolean(form.provider);
+  const canContinueProvider = form.providerKind === "custom" || Boolean(form.provider && form.provider !== "chatgpt_plus");
   const requiresApiKey = form.providerKind === "builtin" && selectedProvider?.requiresApiKey !== false;
   const hasSavedKey = selectedProvider?.configured === true;
   const canSubmit = Boolean(
@@ -253,7 +254,7 @@ export default function QuickSetupDialog(props: QuickSetupDialogProps) {
             )
           : completeMutation.isError
             ? (
-                <Button variant="outline" onClick={() => setStep(2)}><ArrowLeft className="h-4 w-4" /> 修改配置</Button>
+                <Button variant="outline" onClick={() => setStep(form.provider === "chatgpt_plus" ? 1 : 2)}><ArrowLeft className="h-4 w-4" /> 修改配置</Button>
               )
             : null;
 
@@ -312,6 +313,14 @@ export default function QuickSetupDialog(props: QuickSetupDialogProps) {
           </div>
         ) : step === 1 ? (
           <div className="space-y-4">
+            <ChatGPTPlanConnection
+              onUseForCreation={(model) => {
+                setForm({ ...EMPTY_FORM, provider: "chatgpt_plus", model });
+                setStep(3);
+                completeMutation.mutate({ providerKind: "builtin", provider: "chatgpt_plus", model });
+              }}
+              usingForCreation={completeMutation.isPending}
+            />
             <div>
               <h3 className="font-semibold">{showAllProviderChoices ? "选择一个内置模型厂商" : "从推荐方案开始"}</h3>
               <p className="mt-1 text-sm text-muted-foreground">

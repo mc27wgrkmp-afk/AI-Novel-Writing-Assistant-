@@ -19,6 +19,7 @@ import {
   getProviderEnvApiKey,
   getProviderEnvBaseUrl,
   getProviderEnvModel,
+  getProviderDefaultBaseUrl,
   isBuiltInProvider,
   providerRequiresApiKey,
   PROVIDERS,
@@ -30,6 +31,7 @@ import {
   saveLLMSelectionSettings,
 } from "../../../../services/settings/LLMSelectionSettingsService";
 import { secretStore } from "../../../../services/settings/secretStore";
+import { chatGPTPlanService } from "../../../../platform/llm/chatgptPlan/ChatGPTPlanService";
 
 const ROUTE_TEMPERATURES: Record<ModelRouteTaskType, number> = {
   planner: 0.3,
@@ -61,9 +63,9 @@ function buildCustomProviderId(name: string): LLMProvider {
 
 async function listProviderOptions(): Promise<QuickSetupProviderOption[]> {
   const records = await secretStore.listProviders();
+  const planSession = await chatGPTPlanService.getSession().catch(() => ({ status: "disconnected" as const, sharing: false }));
   const recordByProvider = new Map(records.map((record) => [record.provider, record]));
   const builtins: QuickSetupProviderOption[] = SUPPORTED_PROVIDERS
-    .filter((provider) => provider !== "chatgpt_plus")
     .map((provider) => {
       const config = PROVIDERS[provider];
       const record = recordByProvider.get(provider);
@@ -80,13 +82,16 @@ async function listProviderOptions(): Promise<QuickSetupProviderOption[]> {
         kind: "builtin",
         name: config.name,
         requiresApiKey: providerRequiresApiKey(provider),
-        configured: (record?.isActive ?? true) && hasRequiredKey && Boolean(currentModel),
+        configured: (record?.isActive ?? true) && hasRequiredKey && Boolean(currentModel)
+          && (provider !== "chatgpt_plus" || (planSession.status === "connected" && planSession.sharing)),
         active: record?.isActive ?? true,
         currentModel,
         defaultModel: config.defaultModel,
         currentBaseURL,
         defaultBaseURL: config.baseURL,
-        models: Array.from(new Set([...(config.models ?? []), currentModel].filter(Boolean))),
+        models: provider === "chatgpt_plus"
+          ? chatGPTPlanService.getCachedModels().map((model) => model.slug)
+          : Array.from(new Set([...(config.models ?? []), currentModel].filter(Boolean))),
       };
     });
   const customs: QuickSetupProviderOption[] = records
@@ -208,8 +213,20 @@ export async function completeQuickSetup(
   const resolvedInput = await resolveProviderInput(input);
   const provider = resolvedInput.provider;
   const model = input.model.trim();
-  const apiKey = normalizeOptionalText(input.apiKey) ?? resolvedInput.existingKey;
-  const baseURL = normalizeOptionalText(input.baseURL)
+  if (provider === "chatgpt_plus") {
+    const session = await chatGPTPlanService.getSession();
+    if (session.status !== "connected" || !session.sharing) {
+      throw new AppError("请先连接 ChatGPT 账号，并授权使用 Plus / Pro 方案额度。", 400);
+    }
+    const models = await chatGPTPlanService.listModels();
+    if (!models.some((item) => item.slug === model)) {
+      throw new AppError("请选择当前 ChatGPT 账号可用的文本模型。", 400);
+    }
+  }
+  const apiKey = provider === "chatgpt_plus" ? undefined
+    : normalizeOptionalText(input.apiKey) ?? resolvedInput.existingKey;
+  const baseURL = provider === "chatgpt_plus" ? getProviderDefaultBaseUrl(provider)
+    : normalizeOptionalText(input.baseURL)
     ?? resolvedInput.existingBaseURL
     ?? (isBuiltInProvider(provider) ? PROVIDERS[provider].baseURL : undefined);
   if (!model) {

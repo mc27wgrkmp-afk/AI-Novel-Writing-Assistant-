@@ -24,7 +24,11 @@ function connectionLabel(session?: ChatGPTPlanSession): string {
   return "尚未连接 ChatGPT";
 }
 
-export default function ChatGPTPlanConnection(props: { provider?: APIKeyStatus }) {
+export default function ChatGPTPlanConnection(props: {
+  provider?: APIKeyStatus;
+  onUseForCreation?: (model: string) => void;
+  usingForCreation?: boolean;
+}) {
   const { provider } = props;
   const queryClient = useQueryClient();
   const [selectedModel, setSelectedModel] = useState("");
@@ -56,6 +60,7 @@ export default function ChatGPTPlanConnection(props: { provider?: APIKeyStatus }
       queryClient.invalidateQueries({ queryKey: queryKeys.settings.chatgptPlanModels }),
       queryClient.invalidateQueries({ queryKey: queryKeys.settings.apiKeys }),
       queryClient.invalidateQueries({ queryKey: queryKeys.llm.providers }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.settings.quickSetup }),
     ]);
   };
 
@@ -234,6 +239,16 @@ export default function ChatGPTPlanConnection(props: { provider?: APIKeyStatus }
             {modelsQuery.isFetching ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
             刷新模型
           </Button>
+          {props.onUseForCreation ? (
+            <Button
+              size="sm"
+              disabled={!model || busy || modelMutation.isPending || modelsQuery.isFetching || props.usingForCreation}
+              onClick={() => props.onUseForCreation?.(model)}
+            >
+              {props.usingForCreation ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
+              检测并用于创作
+            </Button>
+          ) : null}
         </div>
       ) : null}
     </section>
