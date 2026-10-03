@@ -263,3 +263,24 @@ test("ownerless interrupted work is recovered as paused", async () => {
   assert.equal(recovered.chapters[0].status, "paused");
   assert.ok(!recovered.executionActive);
 });
+
+
+test("connectivity preserves the OpenAI failure instead of the fallback 404", async () => {
+  const http = require("node:http");
+  const { llmConnectivityService } = require("../dist/llm/connectivity");
+  const server = http.createServer((req, res) => {
+    res.setHeader("Content-Type", "application/json");
+    if (req.url.includes("chat/completions")) {
+      res.end(JSON.stringify({ id: "probe", object: "chat.completion", choices: [{ index: 0, message: { role: "assistant", content: "" }, finish_reason: "stop" }] }));
+    } else { res.statusCode = 404; res.end(JSON.stringify({ error: "not found" })); }
+  });
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+  try {
+    const result = await llmConnectivityService.testConnection({ provider: "custom_probe", model: "fixture", baseURL: `http://127.0.0.1:${server.address().port}/v1`, authMode: "none", probeMode: "both" });
+    assert.equal(result.plain.ok, false);
+    assert.match(result.plain.error, /空正文/);
+    assert.equal(result.structured.ok, false);
+    assert.equal(result.structured.requestProtocol, "openai_compatible");
+    assert.doesNotMatch(result.structured.error, /Anthropic request failed/);
+  } finally { await new Promise(resolve => server.close(resolve)); }
+});

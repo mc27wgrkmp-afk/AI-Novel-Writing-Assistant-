@@ -128,7 +128,11 @@ async function testPlainConnection(input: {
       requestProtocol: resolved.requestProtocol,
     });
     const start = Date.now();
-    await llm.invoke([new HumanMessage("请只回复 ok")]);
+    const response = await llm.invoke([new HumanMessage("请只回复 ok")]);
+    const content = typeof response.content === "string" ? response.content : JSON.stringify(response.content ?? "");
+    if (!content.trim() || content === "[]" || content === '""') {
+      throw new Error("模型接口返回空正文，请检查网关上游是否拒绝请求。");
+    }
     const plain = {
       ok: true,
       latency: Date.now() - start,
@@ -304,8 +308,9 @@ async function testConnection(input: {
   let structured: LLMConnectivityStatus | null = null;
   if (probeMode === "plain" || probeMode === "both") {
     for (const requestProtocol of getProtocolCandidates(input.requestProtocol)) {
-      plain = await testPlainConnection({ ...input, requestProtocol });
-      if (plain.ok) {
+      const candidate = await testPlainConnection({ ...input, requestProtocol });
+      if (!plain || candidate.ok) plain = candidate;
+      if (candidate.ok) {
         break;
       }
     }
@@ -319,8 +324,9 @@ async function testConnection(input: {
         requestProtocol,
         preferred: input.structuredResponseFormat,
       })) {
-        structured = await testStructuredConnection({ ...input, requestProtocol, structuredResponseFormat });
-        if (structured.ok) {
+        const candidate = await testStructuredConnection({ ...input, requestProtocol, structuredResponseFormat });
+        if (!structured || candidate.ok) structured = candidate;
+        if (candidate.ok) {
           break;
         }
       }
