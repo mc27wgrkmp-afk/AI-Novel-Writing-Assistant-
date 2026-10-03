@@ -70,9 +70,14 @@ export async function syncNovelWorkflowStage(payload: {
   return data;
 }
 
-export async function retryNovelWorkflow(directorTaskId: string) {
+export async function retryNovelWorkflow(directorTaskId: string, payload?: {
+  conflictRecoverySelection?: { planId: string; optionId: string };
+}) {
   const { data } = await apiClient.post<ApiResponse<DirectorCommandAcceptedResponse>>(
-    `/novels/director/tasks/${directorTaskId}/commands`, { commandType: "retry" },
+    `/novels/director/tasks/${directorTaskId}/commands`, {
+      commandType: "retry",
+      ...(payload ? { payload } : {}),
+    },
   );
   return data;
 }

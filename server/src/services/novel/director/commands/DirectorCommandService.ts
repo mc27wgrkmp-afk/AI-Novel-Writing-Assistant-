@@ -38,6 +38,7 @@ import {
   type DirectorCommandPayload,
 } from "./DirectorCommandServiceHelpers";
 import { taskDispatcher } from "../../../../workers/TaskDispatcher";
+import { DirectorConflictRecoveryService } from "../recovery/conflicts/DirectorConflictRecoveryService";
 import { DirectorCommandLeaseService } from "./leases/DirectorCommandLeaseService";
 
 const ACTIVE_COMMAND_STATUSES: DirectorRunCommandStatus[] = ["queued", "leased", "running"];
@@ -421,6 +422,7 @@ export class DirectorCommandService {
     taskId: string;
     llmOverride?: Pick<DirectorLLMOptions, "provider" | "model" | "temperature">;
     batchAlreadyStartedCount?: number;
+    conflictRecoverySelection?: { planId: string; optionId: string };
   }): Promise<DirectorCommandAcceptedResponse> {
     const row = await this.workflowService.getTaskById(input.taskId);
     if (!row) {
@@ -428,6 +430,9 @@ export class DirectorCommandService {
     }
     if (row.lane !== "auto_director") {
       throw new AppError("Only auto director workflow tasks can be queued as director commands.", 400);
+    }
+    if (input.conflictRecoverySelection) {
+      await new DirectorConflictRecoveryService(this.workflowService).validateSelection(input.taskId, input.conflictRecoverySelection);
     }
     if (input.llmOverride) {
       await this.workflowService.applyAutoDirectorLlmOverride(input.taskId, input.llmOverride);
@@ -439,6 +444,7 @@ export class DirectorCommandService {
       payload: {
         forceResume: true,
         batchAlreadyStartedCount: input.batchAlreadyStartedCount,
+        conflictRecoverySelection: input.conflictRecoverySelection,
       },
     });
   }

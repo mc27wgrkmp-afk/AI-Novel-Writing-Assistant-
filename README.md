@@ -165,6 +165,7 @@ Open-source AI novel writing assistant and long-form production studio.
 
 #### 新增
 
+- 小说执行详情提供“分析冲突并选择方案”：AI 用日常语言解释冲突，以大纲主线为先提出 2–3 个修改方案；由你选择后才修改，完成后可检查结果再继续。
 - ChatGPT 方案模型可选 GPT-6.1 Sol 与 GPT-6 Luna，并可设置思考深度；Sol 默认中等，Luna 默认最大。
 
 #### 优化

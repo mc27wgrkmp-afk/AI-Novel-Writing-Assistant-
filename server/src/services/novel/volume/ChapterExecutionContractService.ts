@@ -40,6 +40,7 @@ type EnsureChapterExecutionContractOptions = Pick<
   "provider" | "model" | "temperature" | "guidance" | "chapterTaskSheetQualityMode" | "entrypoint" | "taskId" | "signal"
 > & {
   taskStyleProfileId?: string;
+  forceRefresh?: boolean;
 };
 
 const chapterExecutionContractFlights = new Map<string, Promise<unknown>>();
@@ -129,7 +130,7 @@ export class ChapterExecutionContractService {
         persisted: chapter,
       })
       : null;
-    if (readiness?.canReuse) {
+    if (readiness?.canReuse && !options.forceRefresh) {
       const styleContract = await this.resolveStyleContract(novelId, chapterId, options.taskStyleProfileId);
       return {
         ...chapter,

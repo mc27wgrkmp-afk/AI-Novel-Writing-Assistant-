@@ -40,6 +40,7 @@ export interface DirectorCommandPayload {
   };
   stepCalibrationRequest?: DirectorStepCalibrationRequest;
   acceptManualChanges?: boolean;
+  conflictRecoverySelection?: { planId: string; optionId: string };
   volumeId?: string | null;
 }
 

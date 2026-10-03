@@ -47,12 +47,14 @@ import { NovelDirectorService } from "../NovelDirectorService";
 import { novelDirectorIdeaInspirationService } from "../NovelDirectorIdeaInspirationService";
 import { novelDirectorIdeaConstellationService } from "../idea/NovelDirectorIdeaConstellationService";
 import { directorPersistedCandidateSchema } from "../runtime/novelDirectorSchemas";
+import { DirectorConflictRecoveryService } from "../recovery/conflicts/DirectorConflictRecoveryService";
 
 const router = Router();
 const commandService = new DirectorCommandService();
 const snapshotService = new DirectorTaskSnapshotService();
 const novelDirectorService = new NovelDirectorService();
 const projectionService = new DirectorBookAutomationProjectionService();
+const conflictRecoveryService = new DirectorConflictRecoveryService();
 
 const correctionPresetValues = DIRECTOR_CORRECTION_PRESETS.map((item) => item.value) as [string, ...string[]];
 const takeoverStartPhaseValues = [...DIRECTOR_TAKEOVER_START_PHASES] as [string, ...string[]];
@@ -313,6 +315,10 @@ const appendCommandSchema = z.discriminatedUnion("commandType", [
     model: z.string().trim().optional(),
     temperature: z.number().min(0).max(2).optional(),
     batchAlreadyStartedCount: z.number().int().min(0).optional(),
+    conflictRecoverySelection: z.object({
+      planId: z.string().trim().min(1),
+      optionId: z.string().trim().min(1),
+    }).optional(),
   }).optional() }),
   z.object({ commandType: z.literal("approve_gate"), payload: z.object({}).optional() }),
   z.object({ commandType: z.literal("policy_update"), payload: runtimePolicySchema }),
@@ -387,6 +393,22 @@ router.post("/idea-constellation/compose", validate({ body: ideaConstellationCom
   }
 });
 
+router.get("/tasks/:taskId/conflict-recovery/plans", validate({ params: taskParamsSchema }), async (req, res, next) => {
+  try {
+    const { taskId } = req.params as z.infer<typeof taskParamsSchema>;
+    res.json(accepted(await conflictRecoveryService.getPlan(taskId), "Conflict recovery plan loaded."));
+  } catch (error) { next(error); }
+});
+
+router.post("/tasks/:taskId/conflict-recovery/plans", validate({ params: taskParamsSchema,
+  body: z.object({ userNote: z.string().trim().max(2000).optional() }),
+}), async (req, res, next) => {
+  try {
+    const { taskId } = req.params as z.infer<typeof taskParamsSchema>;
+    res.json(accepted(await conflictRecoveryService.generate(taskId, req.body.userNote), "Conflict recovery plan generated."));
+  } catch (error) { next(error); }
+});
+
 router.post("/tasks/:taskId/commands", validate({ params: taskParamsSchema, body: appendCommandSchema }), async (req, res, next) => {
   try {
     const { taskId } = req.params as z.infer<typeof taskParamsSchema>;
@@ -440,6 +462,7 @@ router.post("/tasks/:taskId/commands", validate({ params: taskParamsSchema, body
             }
             : undefined,
           batchAlreadyStartedCount: body.payload?.batchAlreadyStartedCount,
+          conflictRecoverySelection: body.payload?.conflictRecoverySelection,
         });
         break;
       case "approve_gate":

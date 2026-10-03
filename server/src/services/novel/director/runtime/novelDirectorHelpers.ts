@@ -81,6 +81,7 @@ export interface DirectorWorkflowSeedPayload extends Record<string, unknown> {
   resumeTarget?: NovelWorkflowResumeTarget | null;
   autoExecution?: DirectorAutoExecutionState;
   taskNotice?: DirectorTaskNotice | null;
+  conflictRecovery?: import("@ai-novel/shared/types/directorConflictRecovery").DirectorConflictRecoveryRecord | null;
   directorRuntime?: DirectorRuntimeSnapshot | null;
   stepReview?: {
     stepId: string;

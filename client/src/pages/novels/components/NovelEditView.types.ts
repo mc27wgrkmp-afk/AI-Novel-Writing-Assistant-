@@ -627,6 +627,7 @@ export interface NovelTaskDrawerState {
   canRetryWithOverrideModel?: boolean;
   onRetryWithTaskModel?: () => void;
   retryWithTaskModelPending?: boolean;
+  conflictRecovery?: import("../autoDirector/recovery/DirectorConflictRecoveryDialog").DirectorConflictRecoveryDialogProps;
   capabilities?: {
     availableActions: boolean;
     availableFollowUps: boolean;

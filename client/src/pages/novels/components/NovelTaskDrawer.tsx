@@ -21,6 +21,7 @@ import { Link } from "react-router-dom";
 import TaskCenterManualEditImpactCard from "@/pages/tasks/components/TaskCenterManualEditImpactCard";
 import TaskCenterRuntimePolicyCard from "@/pages/tasks/components/TaskCenterRuntimePolicyCard";
 import type { NovelTaskDrawerState } from "./NovelEditView.types";
+import { DirectorConflictRecoveryDialog } from "../autoDirector/recovery/DirectorConflictRecoveryDialog";
 
 type DrawerTask = NonNullable<NovelTaskDrawerState["task"]>;
 
@@ -276,6 +277,7 @@ export default function NovelTaskDrawer({
   canRetryWithOverrideModel = false,
   onRetryWithTaskModel,
   retryWithTaskModelPending = false,
+  conflictRecovery,
   capabilities,
   onOpenFullTaskCenter,
 }: NovelTaskDrawerState) {
@@ -654,6 +656,11 @@ export default function NovelTaskDrawer({
         </div>
 
         <div className="space-y-2 border-t border-border/70 px-5 py-4">
+          {conflictRecovery && task && (task.status === "failed" || task.pendingManualRecovery) ? (
+            <Button type="button" className="w-full" onClick={conflictRecovery.onOpen}>
+              分析冲突并选择方案
+            </Button>
+          ) : null}
           {primaryAction ? (
             <Button type="button" className="w-full" onClick={() => handleProjectionAction(primaryAction)}>
               {primaryActionLabel || "继续处理"}
@@ -669,6 +676,7 @@ export default function NovelTaskDrawer({
           </Button>
         </div>
       </DialogContent>
+      {conflictRecovery ? <DirectorConflictRecoveryDialog {...conflictRecovery} /> : null}
     </Dialog>
   );
 }

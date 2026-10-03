@@ -12,6 +12,7 @@ import {
   type DirectorWorkflowSeedPayload,
 } from "../runtime/novelDirectorHelpers";
 import type { DirectorTakeoverRequest } from "@ai-novel/shared/types/novelDirector";
+import { DirectorConflictRecoveryService } from "../recovery/conflicts/DirectorConflictRecoveryService";
 
 export type DirectorCommandExecutionOutcome = "completed" | "cancelled";
 
@@ -211,6 +212,14 @@ export class DirectorCommandExecutor {
       case "resume_from_checkpoint":
       case "retry":
       case "approve_gate": {
+        if (pipelineCommand.intent === "retry" && pipelineCommand.payload.conflictRecoverySelection) {
+          const repaired = await new DirectorConflictRecoveryService(this.workflowService).applySelected(
+            pipelineCommand.taskId,
+            pipelineCommand.payload.conflictRecoverySelection,
+            (request) => this.directorService.calibrateStep(pipelineCommand.taskId, request),
+          );
+          if (repaired) return this.resolveCommandOutcome(pipelineCommand.taskId);
+        }
         const takeoverRequest = await this.resolveContextlessTakeoverRecovery(pipelineCommand.taskId);
         if (takeoverRequest) {
           await this.directorService.startTakeover(takeoverRequest, {

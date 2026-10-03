@@ -19,6 +19,7 @@ import type {
   VolumeStrategyPlan,
 } from "@ai-novel/shared/types/novel";
 import NovelEditView from "./components/NovelEditView";
+import { useDirectorConflictRecovery } from "./autoDirector/recovery/useDirectorConflictRecovery";
 import NovelProductionExperienceHandoff from "./components/NovelProductionExperienceHandoff";
 import type { LLMSelectorValue } from "@/components/common/LLMSelector";
 import { getBaseCharacterList } from "@/api/character";
@@ -1361,6 +1362,14 @@ export default function NovelEdit() {
     onError: (error) => {
       const message = error instanceof Error ? error.message : "按原模型重试失败。";
       toast.error(message);
+    },
+  });
+  const conflictRecovery = useDirectorConflictRecovery({
+    task: displayAutoDirectorTask,
+    onAccepted: async (taskId) => {
+      setDirectorTaskId(taskId);
+      await invalidateAutoDirectorTaskState(taskId);
+      setIsTaskDrawerOpen(true);
     },
   });
   const cancelAutoDirectorMutation = useMutation({
@@ -2837,6 +2846,7 @@ export default function NovelEdit() {
         canRetryWithOverrideModel: Boolean(retryOverride.provider && retryOverride.model.trim()),
         onRetryWithTaskModel: () => retryAutoDirectorWithTaskModelMutation.mutate(),
         retryWithTaskModelPending: retryAutoDirectorWithTaskModelMutation.isPending,
+        conflictRecovery,
         capabilities: {
           availableActions: taskDrawerActions.length > 0,
           availableFollowUps: Boolean(activeAutoDirectorFollowUp),
