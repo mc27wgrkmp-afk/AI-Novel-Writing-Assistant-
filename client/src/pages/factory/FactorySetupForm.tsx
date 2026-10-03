@@ -1,0 +1,32 @@
+import { useState } from "react";
+import type { FactorySetup } from "@ai-novel/shared/types/factory";
+import type { APIKeyStatus } from "@/api/settings";
+import { Button } from "@/components/ui/button";
+
+const sample: FactorySetup = {
+  title: "游戏入侵 · 三章实验", constitution: "游戏灾难侵入现实。陆沉凭借有限的游戏经验求生，能力与物品遵守现实代价。", lockedFacts: [{ id: "no-system", text: "陆沉没有个人系统、属性面板或系统奖励。" }, { id: "limited-knowledge", text: "陆沉只知道自己玩过的早期地图，不知道幕后真相。" }], negativeCanon: ["个人系统", "提前揭露灾难幕后真相"], style: "贴近人物视角，动作与对话推动情节，避免解释性总结。", initialState: { "陆沉.位置": "出租屋", "陆沉.伤势": "无", "陆沉.物品": "手机、钥匙", "时间": "入侵第一夜" }, targetWords: 2400,
+  planner: { provider: "", model: "" }, writer: { provider: "", model: "" },
+  goals: [
+    { title: "敲门声", goal: "识别异常并离开出租屋", mustDo: ["通过邻居的异常发现危险", "带走手机和钥匙"], mustNot: ["获得系统", "知道幕后真相"], hook: "楼道尽头传来熟悉的游戏音效" },
+    { title: "楼道求生", goal: "利用早期地图经验避开怪物", mustDo: ["承接上一章位置与物品", "陆沉右臂受轻伤"], mustNot: ["伤势瞬间消失", "无代价获得能力"], hook: "安全出口后出现一个求救的人" },
+    { title: "陌生同行者", goal: "与求救者协作抵达街道", mustDo: ["保留右臂伤势", "确认街道同样被入侵"], mustNot: ["揭露求救者全部秘密"], hook: "手机收到来源不明的地图坐标" },
+  ],
+};
+const control = "w-full rounded-md border border-input bg-background px-3 py-2 text-sm";
+export default function FactorySetupForm({ providers, busy, onCreate }: { providers: APIKeyStatus[]; busy: boolean; onCreate: (setup: FactorySetup) => Promise<void> }) {
+  const [setup, setSetup] = useState<FactorySetup>({ ...sample, title: "", constitution: "", lockedFacts: [], negativeCanon: [], initialState: {}, goals: sample.goals.map(g => ({ ...g, title: "", goal: "", mustDo: [], mustNot: [], hook: "" })) });
+  const [stateText, setStateText] = useState("{}");
+  const [facts, setFacts] = useState("");
+  const [error, setError] = useState("");
+  const field = (key: "title" | "constitution" | "style", label: string, rows = 1) => <label className="grid gap-2 text-sm">{label}<textarea className={control} rows={rows} value={setup[key]} onChange={e => setSetup({ ...setup, [key]: e.target.value })} required /></label>;
+  return <form className="grid gap-5 rounded-lg bg-muted/30 p-5" onSubmit={async e => { e.preventDefault(); setError(""); try { const state: unknown = JSON.parse(stateText); if (!state || Array.isArray(state) || typeof state !== "object" || Object.values(state).some(v => typeof v !== "string")) throw new Error("初始状态应为 JSON 对象，每个值填写字符串。"); await onCreate({ ...setup, initialState: state as Record<string, string>, negativeCanon: setup.negativeCanon.map(s => s.trim()).filter(Boolean), goals: setup.goals.map(g => ({ ...g, mustDo: g.mustDo.map(s => s.trim()).filter(Boolean), mustNot: g.mustNot.map(s => s.trim()).filter(Boolean) })), lockedFacts: facts.split("\n").filter(s => s.trim()).map((text, i) => ({ id: `fact-${i + 1}`, text: text.trim() })) }); } catch (e) { setError(e instanceof Error ? e.message : "创建失败"); } }}>
+    <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-semibold">准备一本书</h2><p className="text-sm text-muted-foreground">填写固定设定与三章目标，逐章完成写作、审核和交接。</p></div><Button type="button" variant="outline" onClick={() => { setSetup(sample); setFacts(sample.lockedFacts.map(f => f.text).join("\n")); setStateText(JSON.stringify(sample.initialState, null, 2)); }}>填写游戏入侵示例</Button></div>
+    <p className="text-xs text-muted-foreground">示例仅用于填写任务，不包含 AI 生成的正文。</p>
+    <div className="grid gap-5 md:grid-cols-2">{field("title", "书名")}{field("style", "写作风格", 2)}{field("constitution", "故事宪法", 4)}<label className="grid gap-2 text-sm">锁定事实（每行一条）<textarea className={control} rows={4} value={facts} onChange={e => setFacts(e.target.value)} /></label><label className="grid gap-2 text-sm">禁止新增的设定（每行一条）<textarea className={control} rows={3} value={setup.negativeCanon.join("\n")} onChange={e => setSetup({ ...setup, negativeCanon: e.target.value.split("\n") })} /></label><label className="grid gap-2 text-sm">初始人物与故事状态（JSON，值使用字符串）<textarea className={`${control} font-mono`} rows={5} value={stateText} onChange={e => setStateText(e.target.value)} /></label></div>
+    <div className="grid gap-4 md:grid-cols-3">{setup.goals.map((goal, index) => <section key={index} className="space-y-3 rounded-md bg-background/60 p-4"><h3 className="font-medium">第 {index + 1} 章</h3>{([ ["title", "章节标题"], ["goal", "本章目标"], ["mustDo", "必须发生（每行一条）"], ["mustNot", "禁止发生（每行一条）"], ["hook", "结尾钩子"] ] as const).map(([key, label]) => <label key={key} className="grid gap-1 text-sm">{label}<textarea required={key !== "mustNot"} rows={key === "mustDo" || key === "mustNot" ? 3 : 2} className={control} value={Array.isArray(goal[key]) ? (goal[key] as string[]).join("\n") : goal[key]} onChange={e => setSetup({ ...setup, goals: setup.goals.map((g, i) => i !== index ? g : { ...g, [key]: key === "mustDo" || key === "mustNot" ? e.target.value.split("\n") : e.target.value }) })} /></label>)}</section>)}</div>
+    <div className="grid gap-4 md:grid-cols-2">{(["planner", "writer"] as const).map(key => <div key={key} className="space-y-2"><h3 className="text-sm font-medium">{key === "planner" ? "规划与审核模型" : "正文与修复模型"}</h3><div className="grid grid-cols-2 gap-2"><select required className={control} value={setup[key].provider} onChange={e => { const p = providers.find(p => p.provider === e.target.value); setSetup({ ...setup, [key]: { provider: e.target.value, model: p?.currentModel || "" } }); }}><option value="">选择已配置服务</option>{providers.filter(p => p.isConfigured).map(p => <option key={p.provider} value={p.provider}>{p.displayName || p.name}</option>)}</select><input required className={control} placeholder="模型名称" list={`models-${key}`} value={setup[key].model} onChange={e => setSetup({ ...setup, [key]: { ...setup[key], model: e.target.value } })} /><datalist id={`models-${key}`}>{providers.find(p => p.provider === setup[key].provider)?.models.map(m => <option value={m} key={m} />)}</datalist></div></div>)}</div>
+    <p className="text-sm text-muted-foreground">正文服务可在“系统设置 → 模型配置”中配置 Gemini 网关的兼容接口。模型名称需与网关支持的名称一致。</p>
+    <label className="flex items-center gap-3 text-sm">每章目标字数<input className={`${control} max-w-28`} type="number" min={300} max={6000} value={setup.targetWords} onChange={e => setSetup({ ...setup, targetWords: Number(e.target.value) })} /></label>
+    {error && <p role="alert" className="text-sm text-destructive">{error}</p>}<Button type="submit" disabled={busy}>{busy ? "正在保存…" : "保存任务"}</Button>
+  </form>;
+}

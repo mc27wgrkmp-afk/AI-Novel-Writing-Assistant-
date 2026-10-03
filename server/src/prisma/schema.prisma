@@ -4180,3 +4180,15 @@ model MarketCreativeBrief {
 
   @@index([reportId, createdAt])
 }
+
+// A bounded chapter experiment: manuscript and state are committed in one row.
+model FactoryBook {
+  id          String   @id @default(uuid())
+  title       String
+  payloadJson String
+  revision    Int      @default(0)
+  leaseOwner  String?
+  leaseUntil  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

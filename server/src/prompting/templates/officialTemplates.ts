@@ -1,3 +1,4 @@
+import { factoryWritePrompt, FACTORY_REQUIRED_CONTEXT_GROUPS, factoryWriterSlots } from "../prompts/factory/factory.prompts";
 import { createHash } from "node:crypto";
 import { chapterWriterPrompt } from "../prompts/novel/chapterWriter.prompts";
 import { shortStorySegmentWritePrompt } from "../prompts/shortStory/shortStory.prompts";
@@ -149,6 +150,13 @@ const officialTemplates: Record<string, {
   input: string[];
   slot: string[];
 }> = {
+  "factory.chapter.write": {
+    template: { kind: "chat", messages: [
+      { role: "system", content: "你是中文网文作者。只输出本章正文。锁定事实与禁用设定优先，禁止提前兑现未来目标。\n" + factoryWriterSlots.map((slot) => `{{slot.${slot.key}}}`).join("\n") },
+      { role: "human", content: FACTORY_REQUIRED_CONTEXT_GROUPS.map((group) => `【${group}】\n{{context.${group}}}`).join("\n\n") },
+    ] },
+    version: factoryWritePrompt.version, input: [], slot: factoryWriterSlots.map((slot) => slot.key),
+  },
   "novel.chapter.writer": {
     template: writerOfficialTemplate,
     version: chapterWriterPrompt.version,

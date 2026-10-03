@@ -28,6 +28,7 @@ import llmRouter from "./routes/llm";
 import llmLiveRouter from "./platform/llm/live/http/llmLiveRoutes";
 import novelRouter from "./modules/novel/http/novel";
 import creationStudioRouter from "./modules/novel/creation-studio/http/creationStudioRoutes";
+import factoryRouter from "./modules/novel/factory/http/factoryRoutes";
 import { shortStoryProductionService } from "./modules/novel/short-story/application/ShortStoryProductionService";
 import dramaRouter from "./modules/drama/http/dramaRoutes";
 import comicRouter from "./modules/comic/http/comicRoutes";
@@ -139,6 +140,7 @@ export function createApp() {
   app.use("/api", styleEngineExtractionRouter);
   app.use("/api/novels", novelRouter);
   app.use("/api/creation-studio", creationStudioRouter);
+  app.use("/api/factory", factoryRouter);
   app.use("/api/novels/director", novelDirectorRouter);
   app.use("/api/novel-workflows", novelWorkflowsRouter);
   app.use("/api/novels", novelExportRouter);

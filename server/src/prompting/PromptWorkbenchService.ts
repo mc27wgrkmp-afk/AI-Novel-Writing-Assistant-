@@ -1,3 +1,4 @@
+import { buildFactoryContextBlocks, type FactoryPromptInput } from "./prompts/factory/factory.prompts";
 import type { BaseMessage, BaseMessageChunk } from "@langchain/core/messages";
 import type { LLMProvider } from "@ai-novel/shared/types/llm";
 import { prisma } from "../db/prisma";
@@ -510,6 +511,13 @@ export class PromptWorkbenchService {
       asset,
       executionContext: input.executionContext,
     });
+    if (asset.id.startsWith("factory.chapter.") && input.promptInput) {
+      const factoryBlocks = buildFactoryContextBlocks(input.promptInput as FactoryPromptInput);
+      previewContext.executionContext = {
+        ...previewContext.executionContext,
+        metadata: { ...(previewContext.executionContext.metadata ?? {}), extraContextBlocks: factoryBlocks },
+      };
+    }
     const contextRequirements = input.contextRequirements ?? prompt.contextRequirements;
     const brokerResolution = await this.contextBroker.resolve({
       executionContext: previewContext.executionContext,
@@ -686,11 +694,14 @@ export class PromptWorkbenchService {
         schema: rendered.asset.outputSchema,
         maxRepairAttempts: Math.max(0, rendered.asset.repairPolicy?.maxAttempts ?? 1),
       });
-      const outputText = JSON.stringify(result.data, null, 2);
+      const validatedOutput = rendered.asset.id.startsWith("factory.chapter.") && rendered.asset.postValidate
+        ? rendered.asset.postValidate(result.data, input.promptInput, rendered.prepared.context)
+        : result.data;
+      const outputText = JSON.stringify(validatedOutput, null, 2);
       return {
         prompt: rendered.prompt,
         outputType: "structured",
-        output: result.data,
+        output: validatedOutput,
         outputText,
         messages: serializedMessages,
         context: serializePromptContext(rendered.prepared.context),

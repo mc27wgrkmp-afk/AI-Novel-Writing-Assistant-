@@ -1,10 +1,12 @@
+import { FACTORY_REQUIRED_CONTEXT_GROUPS } from "../prompts/factory/factory.prompts";
 import type { PromptSlotDef } from "../slots/slotTypes";
 
 export const ADVANCED_TEMPLATE_PROMPT_IDS = [
+  "factory.chapter.write",
   "novel.chapter.writer",
   "novel.short_story.segment.write",
 ] as const;
-export const ADVANCED_TEMPLATE_PROMPT_ID = ADVANCED_TEMPLATE_PROMPT_IDS[0];
+export const ADVANCED_TEMPLATE_PROMPT_ID = "novel.chapter.writer";
 export const ADVANCED_TEMPLATE_SCOPE = "novel";
 export const ADVANCED_TEMPLATE_MAX_CHARS = 60000;
 
@@ -33,7 +35,9 @@ export function supportsAdvancedPromptTemplate(promptId: string): boolean {
 }
 
 export function getRequiredTemplateContextGroups(promptId: string): string[] {
-  return promptId === "novel.short_story.segment.write"
+  return promptId === "factory.chapter.write"
+    ? [...FACTORY_REQUIRED_CONTEXT_GROUPS]
+    : promptId === "novel.short_story.segment.write"
     ? [...SHORT_STORY_WRITER_REQUIRED_CONTEXT_GROUPS]
     : promptId === "novel.chapter.writer"
       ? [...WRITER_REQUIRED_CONTEXT_GROUPS, "writing_platform"]

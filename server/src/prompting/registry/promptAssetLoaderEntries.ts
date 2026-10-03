@@ -9,6 +9,10 @@ export interface PromptAssetLoaderEntry {
 }
 
 export const promptAssetLoaderEntries: PromptAssetLoaderEntry[] = [
+  { key: "factory.chapter.plan@v1", load: () => require("../prompts/factory/factory.prompts").factoryPlanPrompt as UnknownPromptAsset },
+  { key: "factory.chapter.write@v1", load: () => require("../prompts/factory/factory.prompts").factoryWritePrompt as UnknownPromptAsset },
+  { key: "factory.chapter.review@v1", load: () => require("../prompts/factory/factory.prompts").factoryReviewPrompt as UnknownPromptAsset },
+  { key: "factory.chapter.patch@v1", load: () => require("../prompts/factory/factory.prompts").factoryPatchPrompt as UnknownPromptAsset },
   {
     key: "director.issue.assessment@v1",
     load: () => require("../prompts/director/directorIssueAssessment.prompts").directorIssueAssessmentPrompt as UnknownPromptAsset,

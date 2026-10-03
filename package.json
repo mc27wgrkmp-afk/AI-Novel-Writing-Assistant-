@@ -52,7 +52,9 @@
     "test": "pnpm --filter @ai-novel/server test",
     "test:client": "pnpm --filter @ai-novel/client test",
     "test:all": "pnpm --filter @ai-novel/server test:all && pnpm --filter @ai-novel/client test",
-    "lint": "pnpm --filter @ai-novel/shared lint && pnpm --filter @ai-novel/server lint && pnpm --filter @ai-novel/client lint"
+    "lint": "pnpm --filter @ai-novel/shared lint && pnpm --filter @ai-novel/server lint && pnpm --filter @ai-novel/client lint",
+    "dev:factory": "bash scripts/start-factory.sh",
+    "test:factory": "bash scripts/test-factory.sh"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

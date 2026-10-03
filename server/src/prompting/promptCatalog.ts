@@ -1,4 +1,8 @@
 const PROMPT_CATALOG_SHORT_DESCRIPTIONS: Record<string, string> = {
+  "factory.chapter.plan": "单章小剧本",
+  "factory.chapter.write": "单章正文生成",
+  "factory.chapter.review": "单章审核与状态提取",
+  "factory.chapter.patch": "单章局部修复",
   "novel.chapter.writer": "章节正文生成",
   "novel.short_story.segment.write": "短篇正文生成",
   "novel.short_story.full.audit": "短篇全文审校",
