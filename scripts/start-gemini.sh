@@ -20,4 +20,15 @@ path.write_text(json.dumps(config, indent=2))
 path.chmod(0o600)
 PYCONFIG
 cd "$FACTORY_GATEWAY"
+FACTORY_ENGINE="${GEMINI_GATEWAY_ENGINE:-$("$FACTORY_ROOT/.local/gemini-venv/bin/python" -c 'import json; print(json.load(open("config.json")).get("gateway_engine", "legacy"))')}"
+if [[ "$FACTORY_ENGINE" == "hanaoka" ]]; then
+  if [[ ! -x "$FACTORY_ROOT/.local/gemini-api-venv/bin/python" ]]; then
+    echo "请先运行 bash scripts/setup-gemini.sh --hanaoka。" >&2
+    exit 1
+  fi
+  exec "$FACTORY_ROOT/.local/gemini-api-venv/bin/python" "$FACTORY_ROOT/scripts/gemini-api-gateway.py"
+elif [[ "$FACTORY_ENGINE" != "legacy" ]]; then
+  echo "未知的 Gemini 网关引擎；可选 hanaoka 或 legacy。" >&2
+  exit 1
+fi
 exec "$FACTORY_ROOT/.local/gemini-venv/bin/python" gemini_web2api.py

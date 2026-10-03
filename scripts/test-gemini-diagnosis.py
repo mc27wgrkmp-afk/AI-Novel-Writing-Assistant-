@@ -4,6 +4,9 @@ from pathlib import Path
 import unittest
 import urllib.error
 import urllib.request
+import json
+import tempfile
+from unittest.mock import patch, MagicMock
 
 spec = importlib.util.spec_from_file_location("diagnosis", Path(__file__).with_name("diagnose-gemini.py"))
 diagnosis = importlib.util.module_from_spec(spec)
@@ -11,6 +14,22 @@ spec.loader.exec_module(diagnosis)
 
 
 class DiagnosisTest(unittest.TestCase):
+    def test_hanaoka_offline_gateway_diagnosis_never_falls_back_to_google(self):
+        with tempfile.TemporaryDirectory() as directory:
+            config = Path(directory) / '.local/gemini-web2api/config.json'
+            config.parent.mkdir(parents=True)
+            config.write_text(json.dumps({'gateway_engine': 'hanaoka'}))
+            local = MagicMock()
+            local.open.side_effect = OSError('offline')
+            with patch.object(diagnosis, 'ROOT', Path(directory)), \
+                 patch('sys.argv', ['diagnose-gemini.py']), \
+                 patch.object(diagnosis.urllib.request, 'build_opener', return_value=local), \
+                 patch('builtins.print'):
+                diagnosis.main()
+            self.assertEqual(local.open.call_count, 2)
+            for call in local.open.call_args_list:
+                self.assertTrue(call.args[0].full_url.startswith('http://127.0.0.1:'))
+
     def test_cross_origin_redirect_strips_credentials(self):
         handler = diagnosis.CredentialRedirectHandler()
         request = urllib.request.Request("https://gemini.google.com/app", headers={"Cookie": "private", "Authorization": "private-auth"})

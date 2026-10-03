@@ -1,0 +1,2 @@
+# Pinned reviewed source: upgrades require transport/retry policy regression tests.
+gemini-webapi @ git+https://github.com/HanaokaYuzu/Gemini-API.git@8c5b1dcbf54ecf093551cc20bd25cef438190ba8

@@ -24,6 +24,15 @@ bash scripts/setup-gemini.sh
 bash scripts/start-gemini.sh
 ```
 
+可选使用持续维护会话、按账号读取模型的 Gemini-API 引擎，需要 Python 3.11 或更新版本（默认查找 `python3.12`，可通过 `GEMINI_API_PYTHON` 指定）：
+
+```bash
+bash scripts/setup-gemini.sh --hanaoka
+bash scripts/start-gemini.sh
+```
+
+接口地址仍为 `http://127.0.0.1:8081/v1`，已有工作台配置可继续使用。新引擎逐个处理文本请求，回复结束后至少间隔两分钟，关闭自动重发，并低频维护登录会话。首次成功初始化后，模型列表会显示账号返回的模型；旧版本名称只作为网页版档位兼容入口。遇到验证或上游限制会保留人工暂停，安装和换引擎均不解除暂停。诊断与恢复见 [Gemini 网关说明](./wiki/debugging/gemini-local-gateway.md)。临时切回原引擎：停止网关后运行 `GEMINI_GATEWAY_ENGINE=legacy bash scripts/start-gemini.sh`。
+
 网关监听本机 8081；首次安装需要 Git、Python 3 和网络。在应用「模型设置」增加自定义厂商，URL 填 `http://127.0.0.1:8081/v1`，鉴权选无，模型选项已加入 `gemini-3.8-flash`；本地网关将它映射到网页版 Fast 档，实际模型版本取决于上游账户与页面发布状态，不能像官方 API 一样锁定 3.8。需要锁定版本时使用官方 Gemini API 的 `gemini-3.8-flash`。当前电脑已保存「Gemini 本地网关」配置。
 
 章节表单分别选择正文模型与规划/审核模型。规划和审核需要可靠的结构化输出，可配置自己已有的 API；也可以先选择网关测试，但应人工检查审稿质量。模型列表连通只代表配置可读取，真实生成仍需实际试写验证。

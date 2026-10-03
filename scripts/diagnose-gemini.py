@@ -41,6 +41,26 @@ def error_description(error):
     return {"type": type(error).__name__}
 
 
+def probe_generation(config, local, base, headers, report):
+    body = json.dumps({"model": config.get("default_model", "gemini-3.7-flash"),
+                       "messages": [{"role": "user", "content": "Reply only OK."}], "stream": False}).encode()
+    request = urllib.request.Request(base + "/chat/completions", data=body, headers=headers)
+    try:
+        with local.open(request, timeout=max(360, float(config.get("request_timeout_sec", 180)) + float(config.get("request_interval_sec", 120)) + 60)) as response:
+            result = json.loads(response.read())
+            choices = result.get("choices") or []
+            content = choices[0].get("message", {}).get("content") if choices else None
+            report["generation"] = {"httpStatus": response.status, "contentPresent": bool(content and content.strip())}
+    except urllib.error.HTTPError as error:
+        body = error.read().decode("utf-8", "replace")
+        code = re.search(r"BardErrorInfo\s*\[(\d+)\]", body)
+        report["generation"] = {"httpStatus": error.code, "upstreamCode": int(code[1]) if code else None,
+                                "coolingDown": "cooling down" in body,
+                                "manualRecoveryRequired": "Gemini paused:" in body}
+    except Exception as error:
+        report["generationError"] = error_description(error)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--generate", action="store_true", help="Send one synthetic 'Reply only OK.' prompt")
@@ -58,6 +78,26 @@ def main():
             report["gatewayModelsStatus"] = response.status
     except Exception as error:
         report["gatewayModelsError"] = error_description(error)
+
+    # Gemini-API keeps a rotated private jar; a separate legacy page request would
+    # inspect a stale snapshot and bypass the shared queue. Read local status only.
+    try:
+        with local.open(urllib.request.Request(base.removesuffix("/v1") + "/", headers=headers), timeout=10) as response:
+            health = json.load(response)
+        if health.get("backend") == "hanaoka":
+            report["backend"] = "hanaoka"
+            report["gatewayState"] = {key: health.get(key) for key in
+                ("generation_verified", "verification_required", "next_at", "blocked_until")}
+            if args.generate:
+                probe_generation(config, local, base, headers, report)
+            print(json.dumps(report, ensure_ascii=False, indent=2))
+            return 0
+    except Exception as error:
+        if config.get('gateway_engine') == 'hanaoka':
+            report['backend'] = 'hanaoka'
+            report['gatewayStateError'] = error_description(error)
+            print(json.dumps(report, ensure_ascii=False, indent=2))
+            return 0
 
     cookie = ""
     if config.get("cookie_file"):
@@ -88,22 +128,7 @@ def main():
         report["upstreamPageError"] = error_description(error)
 
     if args.generate:
-        body = json.dumps({"model": config.get("default_model", "gemini-3.7-flash"),
-                           "messages": [{"role": "user", "content": "Reply only OK."}], "stream": False}).encode()
-        request = urllib.request.Request(base + "/chat/completions", data=body, headers=headers)
-        try:
-            with local.open(request, timeout=240) as response:
-                result = json.loads(response.read())
-                choices = result.get("choices") or []
-                content = choices[0].get("message", {}).get("content") if choices else None
-                report["generation"] = {"httpStatus": response.status, "contentPresent": bool(content and content.strip())}
-        except urllib.error.HTTPError as error:
-            body = error.read().decode("utf-8", "replace")
-            code = re.search(r"BardErrorInfo\s*\[(\d+)\]", body)
-            report["generation"] = {"httpStatus": error.code, "upstreamCode": int(code[1]) if code else None,
-                                    "coolingDown": "cooling down" in body}
-        except Exception as error:
-            report["generationError"] = error_description(error)
+        probe_generation(config, local, base, headers, report)
     print(json.dumps(report, ensure_ascii=False, indent=2))
     return 0
 
