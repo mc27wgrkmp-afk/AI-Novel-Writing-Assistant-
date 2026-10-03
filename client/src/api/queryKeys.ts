@@ -148,6 +148,8 @@ export const queryKeys = {
   },
   settings: {
     apiKeys: ["settings", "api-keys"] as const,
+    chatgptPlan: ["settings", "chatgpt-plan"] as const,
+    chatgptPlanModels: ["settings", "chatgpt-plan", "models"] as const,
     llmSelection: ["settings", "llm-selection"] as const,
     apiKeyBalances: ["settings", "api-key-balances"] as const,
     rag: ["settings", "rag"] as const,

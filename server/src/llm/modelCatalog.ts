@@ -5,6 +5,7 @@ import {
   PROVIDERS,
   resolveProviderBaseUrl,
 } from "./providers";
+import { chatGPTPlanService } from "../platform/llm/chatgptPlan/ChatGPTPlanService";
 
 interface ModelCacheItem {
   models: string[];
@@ -214,6 +215,11 @@ async function fetchProviderModels(
   customBaseURL?: string,
   authMode?: ProviderAuthMode,
 ): Promise<string[]> {
+  if (provider === "chatgpt_plus") {
+    const models = await chatGPTPlanService.listModels();
+    if (!models.length) throw new Error("ChatGPT 账号没有返回可用模型。");
+    return models.map((model) => model.slug);
+  }
   const baseURL = resolveProviderBaseUrl(provider, customBaseURL, customBaseURL);
   if (!baseURL) {
     throw new Error("未配置可用的 API URL。");

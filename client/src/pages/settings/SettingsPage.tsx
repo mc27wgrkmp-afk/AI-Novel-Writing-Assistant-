@@ -16,6 +16,7 @@ import {
 } from "@/api/settings";
 import { queryKeys } from "@/api/queryKeys";
 import ProviderConfigDialog, { type ProviderFormState } from "./components/ProviderConfigDialog";
+import ChatGPTPlanConnection from "./components/ChatGPTPlanConnection";
 import ProviderSettingsSection from "./components/ProviderSettingsSection";
 import SettingsActionResult from "./SettingsActionResult";
 import { AUTO_DIRECTOR_MOBILE_CLASSES } from "@/mobile/autoDirector";
@@ -444,6 +445,7 @@ export default function SettingsPage() {
   return (
     <div className={AUTO_DIRECTOR_MOBILE_CLASSES.settingsPageRoot}>
       <div className="space-y-4">
+        <ChatGPTPlanConnection provider={providerConfigs.find((provider) => provider.provider === "chatgpt_plus")} />
         <ProviderSettingsSection
           providers={providerConfigs}
           balances={providerBalancesQuery.data?.data ?? []}

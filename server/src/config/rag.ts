@@ -1,5 +1,5 @@
 import {
-  LLM_PROVIDERS,
+  EMBEDDING_LLM_PROVIDERS,
   isBuiltinLLMProvider,
   type LLMProvider,
 } from "@ai-novel/shared/types/llm";
@@ -61,7 +61,9 @@ export function asEmbeddingProvider(rawValue: string | undefined): EmbeddingProv
 
   const normalizedBuiltin = trimmed.toLowerCase();
   if (isBuiltinLLMProvider(normalizedBuiltin)) {
-    return normalizedBuiltin;
+    return (EMBEDDING_LLM_PROVIDERS as readonly string[]).includes(normalizedBuiltin)
+      ? normalizedBuiltin
+      : DEFAULT_EMBEDDING_PROVIDER;
   }
 
   return trimmed;
@@ -136,5 +138,5 @@ export const ragConfig = {
   contextualRetrievalVersion: asInt(process.env.RAG_CONTEXTUAL_RETRIEVAL_VERSION ?? "1", 1, 1, 100),
   contextualRetrievalTimeoutMs: asInt(process.env.RAG_CONTEXTUAL_RETRIEVAL_TIMEOUT_MS ?? "15000", 15000, 1000, 120000),
   contextualRetrievalConcurrency: asInt(process.env.RAG_CONTEXTUAL_RETRIEVAL_CONCURRENCY ?? "2", 2, 1, 8),
-  providerPriority: [...LLM_PROVIDERS] as EmbeddingProvider[],
+  providerPriority: [...EMBEDDING_LLM_PROVIDERS] as EmbeddingProvider[],
 };

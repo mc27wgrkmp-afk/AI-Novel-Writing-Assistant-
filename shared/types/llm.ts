@@ -10,7 +10,22 @@ export const LLM_PROVIDERS = [
   "qwen",
   "gemini",
   "ollama",
+  "chatgpt_plus",
 ] as const;
+
+export const EMBEDDING_LLM_PROVIDERS = [
+  "deepseek",
+  "siliconflow",
+  "openai",
+  "anthropic",
+  "grok",
+  "kimi",
+  "minimax",
+  "glm",
+  "qwen",
+  "gemini",
+  "ollama",
+] as const satisfies readonly BuiltinLLMProvider[];
 
 export type BuiltinLLMProvider = typeof LLM_PROVIDERS[number];
 export type LLMProvider = BuiltinLLMProvider | (string & {});

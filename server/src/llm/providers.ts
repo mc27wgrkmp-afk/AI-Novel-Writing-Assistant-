@@ -1,5 +1,6 @@
 import {
   LLM_PROVIDERS,
+  EMBEDDING_LLM_PROVIDERS,
   isBuiltinLLMProvider,
   type BuiltinLLMProvider,
   type LLMProvider,
@@ -140,9 +141,18 @@ export const PROVIDERS: Record<BuiltinLLMProvider, ProviderConfig> = {
     envModelKey: "OLLAMA_MODEL",
     requiresApiKey: false,
   },
+  chatgpt_plus: {
+    name: "ChatGPT Plus / Pro",
+    baseURL: "http://127.0.0.1:8012/api/chatgpt-plan/v1",
+    defaultModel: "",
+    models: [],
+    envKey: "",
+    requiresApiKey: false,
+  },
 };
 
 export const SUPPORTED_PROVIDERS: BuiltinLLMProvider[] = [...LLM_PROVIDERS];
+export const SUPPORTED_EMBEDDING_PROVIDERS = [...EMBEDDING_LLM_PROVIDERS];
 
 export function isBuiltInProvider(provider: string): provider is BuiltinLLMProvider {
   return isBuiltinLLMProvider(provider);
@@ -189,6 +199,13 @@ export function getProviderDefaultBaseUrl(provider: LLMProvider): string | undef
   if (!isBuiltInProvider(provider)) {
     return undefined;
   }
+  if (provider === "chatgpt_plus") {
+    const configuredPort = Number(process.env.PORT ?? "3001");
+    const port = Number.isInteger(configuredPort) && configuredPort > 0 && configuredPort <= 65535
+      ? configuredPort
+      : 3001;
+    return `http://127.0.0.1:${port}/api/chatgpt-plan/v1`;
+  }
   return normalizeBaseURL(PROVIDERS[provider].baseURL);
 }
 
@@ -197,6 +214,9 @@ export function resolveProviderBaseUrl(
   customBaseURL?: string,
   fallbackBaseURL?: string,
 ): string | undefined {
+  if (provider === "chatgpt_plus") {
+    return getProviderDefaultBaseUrl(provider);
+  }
   const normalizedCustom = typeof customBaseURL === "string" && customBaseURL.trim()
     ? normalizeBaseURL(customBaseURL.trim())
     : undefined;

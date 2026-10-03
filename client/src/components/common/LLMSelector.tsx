@@ -73,6 +73,7 @@ export default function LLMSelector({
 
   const resolvedTemperature = currentValue.temperature ?? store.temperature;
   const resolvedMaxTokens = currentValue.maxTokens ?? store.maxTokens;
+  const usesChatGPTPlan = currentValue.provider === "chatgpt_plus";
 
   const apiKeySettingsQuery = useQuery({
     queryKey: queryKeys.settings.apiKeys,
@@ -341,7 +342,7 @@ export default function LLMSelector({
                   maxTokens: resolvedMaxTokens,
                 });
               }}
-              disabled={!hasRunnableProviders}
+              disabled={!hasRunnableProviders || usesChatGPTPlan}
             />
           </label>
         ) : null}
@@ -350,6 +351,12 @@ export default function LLMSelector({
       {showHelperText && !hasRunnableProviders && !apiKeySettingsQuery.isLoading ? (
         <div className="text-xs text-muted-foreground">
           当前没有已配置且启用的模型厂商，请先到系统设置里完成 API Key 和模型配置。
+        </div>
+      ) : null}
+
+      {usesChatGPTPlan ? (
+        <div className="text-xs text-muted-foreground">
+          ChatGPT 方案连接不接收温度和输出长度设置，这些参数由 ChatGPT 服务决定。
         </div>
       ) : null}
 
@@ -383,7 +390,7 @@ export default function LLMSelector({
                   maxTokens: resolvedMaxTokens,
                 });
               }}
-              disabled={!hasRunnableProviders}
+              disabled={!hasRunnableProviders || usesChatGPTPlan}
             />
           </label>
 
@@ -395,7 +402,7 @@ export default function LLMSelector({
               min={256}
               max={32768}
               value={resolvedMaxTokens ?? ""}
-              disabled={!hasRunnableProviders}
+              disabled={!hasRunnableProviders || usesChatGPTPlan}
               onChange={(event) => {
                 if (!event.target.value.trim()) {
                   updateValue({

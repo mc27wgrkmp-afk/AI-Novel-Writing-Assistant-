@@ -23,6 +23,7 @@ import {
   providerRequiresApiKey,
   PROVIDERS,
   SUPPORTED_PROVIDERS,
+  getProviderDefaultBaseUrl,
 } from "../llm/providers";
 import { authMiddleware } from "../middleware/auth";
 import { AppError } from "../middleware/errorHandler";
@@ -55,6 +56,7 @@ import {
 } from "../services/settings/StyleEngineRuntimeSettingsService";
 import { registerCustomProviderRoutes } from "./settings/customProviderRoutes";
 import { registerLLMSelectionRoutes } from "./settings/llmSelectionRoutes";
+import { chatGPTPlanService } from "../platform/llm/chatgptPlan/ChatGPTPlanService";
 
 const router = Router();
 const MAX_PROVIDER_CONCURRENCY_LIMIT = 100;
@@ -229,22 +231,32 @@ function buildBuiltInProviderStatus(
     requestIntervalMs?: number | null;
   } | undefined,
   imageModel: string | undefined,
+  chatGPTPlanSharing: boolean,
+  chatGPTPlanModels: string[] = [],
 ): BuiltInProviderStatus {
   const savedKey = normalizeOptionalText(item?.key);
   const envKey = getProviderEnvApiKey(provider);
   const effectiveKey = savedKey ?? envKey;
-  const savedBaseURL = normalizeOptionalText(item?.baseURL);
+  const savedBaseURL = provider === "chatgpt_plus" ? undefined : normalizeOptionalText(item?.baseURL);
   const configuredModel = normalizeOptionalText(item?.model) ?? getProviderEnvModel(provider);
   const currentBaseURL = savedBaseURL
     ?? getProviderEnvBaseUrl(provider)
+    ?? getProviderDefaultBaseUrl(provider)
     ?? PROVIDERS[provider].baseURL;
   const requiresApiKey = providerRequiresApiKey(provider);
   const hiddenModels = parseHiddenModels(item?.hiddenModels);
-  const fallbackModels = getFallbackModels(provider, configuredModel);
+  const fallbackModels = provider === "chatgpt_plus"
+    ? Array.from(new Set([...chatGPTPlanModels, configuredModel ?? ""].filter(Boolean)))
+    : getFallbackModels(provider, configuredModel);
   const currentModel = configuredModel ?? fallbackModels[0] ?? "";
   const models = filterHiddenModels(fallbackModels, hiddenModels, currentModel);
-  const currentImageModel = imageModel ?? getDefaultImageModel(provider) ?? null;
-  const isConfigured = requiresApiKey ? Boolean(effectiveKey && currentModel) : Boolean(currentModel && currentBaseURL);
+  const currentImageModel = provider === "chatgpt_plus" ? null : imageModel ?? getDefaultImageModel(provider) ?? null;
+  const isConfigured = provider === "chatgpt_plus"
+    ? Boolean(chatGPTPlanSharing && currentModel)
+    : requiresApiKey ? Boolean(effectiveKey && currentModel) : Boolean(currentModel && currentBaseURL);
+  const isActive = provider === "chatgpt_plus"
+    ? Boolean(chatGPTPlanSharing && (item?.isActive ?? true))
+    : item?.isActive ?? isConfigured;
   const supportsReasoningEffort = isDeepSeekThinkingModeProvider(provider, currentBaseURL, currentModel);
 
   return {
@@ -257,13 +269,15 @@ function buildBuiltInProviderStatus(
     currentBaseURL,
     currentAuthMode: "bearer",
     models,
-    imageModels: Array.from(new Set([...getImageModelOptions(provider), currentImageModel ?? ""].filter(Boolean))),
+    imageModels: provider === "chatgpt_plus"
+      ? []
+      : Array.from(new Set([...getImageModelOptions(provider), currentImageModel ?? ""].filter(Boolean))),
     defaultModel: PROVIDERS[provider].defaultModel,
-    defaultImageModel: getDefaultImageModel(provider) ?? null,
-    defaultBaseURL: PROVIDERS[provider].baseURL,
+    defaultImageModel: provider === "chatgpt_plus" ? null : getDefaultImageModel(provider) ?? null,
+    defaultBaseURL: getProviderDefaultBaseUrl(provider) ?? PROVIDERS[provider].baseURL,
     requiresApiKey,
     isConfigured,
-    isActive: item?.isActive ?? isConfigured,
+    isActive,
     reasoningEnabled: item?.reasoningEnabled ?? true,
     reasoningEffort: supportsReasoningEffort ? normalizeReasoningEffort(item?.reasoningEffort) : null,
     supportsReasoningEffort,
@@ -383,6 +397,9 @@ router.put(
   async (req, res, next) => {
     try {
       const body = req.body as z.infer<typeof ragSettingsSchema>;
+      if (body.embeddingProvider === "chatgpt_plus") {
+        throw new AppError("ChatGPT 方案连接仅支持文本生成，请为知识库选择向量模型服务。", 400);
+      }
       if (body.embeddingApiKey || body.embeddingBaseURL) {
         const existing = await secretStore.getProvider(body.embeddingProvider);
         const record = await secretStore.upsertProvider(body.embeddingProvider, {
@@ -503,8 +520,18 @@ router.get("/api-keys", async (_req, res, next) => {
       ...keys.map((item) => item.provider),
     ]));
     const imageModelMap = await getProviderImageModelMap(allProviders);
+    const chatGPTPlanSession = await chatGPTPlanService.getSession().catch(() => ({ status: "disconnected" as const, sharing: false }));
+    const chatGPTPlanModels = chatGPTPlanSession.status === "connected" && chatGPTPlanSession.sharing
+      ? await chatGPTPlanService.listModels().then((models) => models.map((model) => model.slug)).catch(() => [])
+      : [];
     const builtInProviders = SUPPORTED_PROVIDERS.map((provider) =>
-      buildBuiltInProviderStatus(provider, keyMap.get(provider), imageModelMap.get(provider)),
+      buildBuiltInProviderStatus(
+        provider,
+        keyMap.get(provider),
+        imageModelMap.get(provider),
+        provider === "chatgpt_plus" && chatGPTPlanSession.status === "connected" && chatGPTPlanSession.sharing,
+        provider === "chatgpt_plus" ? chatGPTPlanModels : [],
+      ),
     );
     const customProviders = keys
       .filter((item) => !isBuiltInProvider(item.provider))
@@ -557,7 +584,9 @@ router.put(
       const envKey = getProviderEnvApiKey(provider);
       const effectiveKey = nextKey ?? envKey;
       const nextModel = normalizeOptionalText(body.model) ?? normalizeOptionalText(existingRecord?.model);
-      const nextBaseURL = body.baseURL !== undefined
+      const nextBaseURL = provider === "chatgpt_plus"
+        ? null
+        : body.baseURL !== undefined
         ? normalizeOptionalText(body.baseURL)
         : normalizeOptionalText(existingRecord?.baseURL);
       const nextAuthMode = isBuiltInProvider(provider)
@@ -640,10 +669,12 @@ router.put(
       const currentImageModel = body.imageModel !== undefined
         ? await saveProviderImageModel(provider, body.imageModel)
         : await getProviderImageModelMap([provider]).then((map) => map.get(provider) ?? null);
-      const imageModels = Array.from(new Set([
-        ...getImageModelOptions(provider),
-        currentImageModel ?? "",
-      ].filter(Boolean)));
+      const imageModels = provider === "chatgpt_plus"
+        ? []
+        : Array.from(new Set([
+          ...getImageModelOptions(provider),
+          currentImageModel ?? "",
+        ].filter(Boolean)));
 
       setProviderSecretCache(provider, data.isActive ? {
         displayName: data.displayName ?? undefined,

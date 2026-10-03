@@ -40,6 +40,33 @@ export interface APIKeyStatus {
   supportsImageGeneration: boolean;
 }
 
+export interface ChatGPTPlanModel {
+  slug: string;
+  displayName: string;
+}
+
+export interface ChatGPTPlanSession {
+  status: "disconnected" | "connecting" | "connected" | "reauth_required";
+  sharing: boolean;
+  profileId?: string;
+  profileLabel?: string;
+  identity?: { name?: string; email?: string };
+  error?: { code: string; message: string; retryable: boolean };
+}
+
+export interface ChatGPTPlanStatus {
+  available: boolean;
+  message: string | null;
+  session: ChatGPTPlanSession;
+  usageUrl: string;
+  models?: ChatGPTPlanModel[];
+  modelError?: string | null;
+}
+
+export type ChatGPTPlanDisconnectResult = ChatGPTPlanSession & {
+  remoteRevocationConfirmed: boolean;
+};
+
 export type ProviderBalanceStatusKind = "available" | "missing_api_key" | "unsupported" | "error";
 
 export interface ProviderBalanceStatus {
@@ -203,6 +230,29 @@ export interface PendingReviewAutoPromotionSettings {
 
 export async function getAPIKeySettings() {
   const { data } = await apiClient.get<ApiResponse<APIKeyStatus[]>>("/settings/api-keys");
+  return data;
+}
+
+export async function getChatGPTPlanStatus() {
+  const { data } = await apiClient.get<ApiResponse<ChatGPTPlanStatus>>("/settings/chatgpt-plan/status");
+  return data;
+}
+
+export async function connectChatGPTPlan(reconsent = false) {
+  const { data } = await apiClient.post<ApiResponse<ChatGPTPlanStatus>>(
+    "/settings/chatgpt-plan/sign-in",
+    { reconsent },
+  );
+  return data;
+}
+
+export async function getChatGPTPlanModels() {
+  const { data } = await apiClient.get<ApiResponse<ChatGPTPlanModel[]>>("/settings/chatgpt-plan/models");
+  return data;
+}
+
+export async function disconnectChatGPTPlan() {
+  const { data } = await apiClient.post<ApiResponse<ChatGPTPlanDisconnectResult>>("/settings/chatgpt-plan/disconnect");
   return data;
 }
 

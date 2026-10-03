@@ -16,7 +16,10 @@ const environment = {
   HOST: "127.0.0.1", PORT: apiPort, ALLOW_LAN: "false",
   CORS_ORIGIN: `http://127.0.0.1:${webPort},http://localhost:${webPort}`,
   VITE_API_BASE_URL: `http://127.0.0.1:${apiPort}/api`, RAG_ENABLED: "false",
+  AI_NOVEL_SIWC_SDK_ENTRY: path.join(root, ".local", "siwc-devkit", "packages", "local", "dist", "index.js"),
 };
+const siwcPrepared = spawnSync(runtime, [path.join(root, "scripts", "setup-chatgpt-sdk.cjs")], { cwd: root, env: environment, stdio: "inherit" });
+if (siwcPrepared.status !== 0) console.error("ChatGPT 方案连接未能准备；其余本地工作台功能继续启动。");
 const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 const built = spawnSync(pnpm, ["--filter", "@ai-novel/shared", "build"], { cwd: root, env: environment, stdio: "inherit" });
 if (built.status !== 0) process.exit(built.status || 1);

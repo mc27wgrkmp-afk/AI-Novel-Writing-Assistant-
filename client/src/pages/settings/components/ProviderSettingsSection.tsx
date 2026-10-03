@@ -68,10 +68,12 @@ export default function ProviderSettingsSection(props: {
     };
   });
   const visibleViewModels = useMemo(
-    () => viewModels.filter(({ provider }) => provider.isConfigured && provider.isActive),
+    () => viewModels.filter(({ provider }) => provider.provider !== "chatgpt_plus" && provider.isConfigured && provider.isActive),
     [viewModels],
   );
-  const addableBuiltIns = providers.filter((provider) => provider.kind === "builtin" && (!provider.isConfigured || !provider.isActive));
+  const addableBuiltIns = providers.filter((provider) => provider.kind === "builtin"
+    && provider.provider !== "chatgpt_plus"
+    && (!provider.isConfigured || !provider.isActive));
 
   return (
     <Card id="settings-provider-section" className="min-w-0 scroll-mt-20 overflow-hidden border-primary/10 bg-gradient-to-b from-primary/[0.035] to-background shadow-sm">

@@ -8,6 +8,7 @@ import {
   isBuiltInProvider,
   providerRequiresApiKey,
   PROVIDERS,
+  SUPPORTED_EMBEDDING_PROVIDERS,
 } from "../../llm/providers";
 
 interface ProviderSecret {
@@ -136,6 +137,9 @@ async function resolveProviderSecret(provider: EmbeddingProvider): Promise<Provi
 export async function getRagEmbeddingModelOptions(
   provider: EmbeddingProvider,
 ): Promise<RagEmbeddingModelOptions> {
+  if (isBuiltInProvider(provider) && !(SUPPORTED_EMBEDDING_PROVIDERS as readonly string[]).includes(provider)) {
+    throw new Error("ChatGPT plan connections support text generation, not embeddings.");
+  }
   const secret = await resolveProviderSecret(provider);
   const fallbackModels = getFallbackModels(provider, secret.model);
 

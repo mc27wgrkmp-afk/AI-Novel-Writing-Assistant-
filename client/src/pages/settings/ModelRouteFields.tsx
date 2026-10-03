@@ -39,6 +39,7 @@ export default function ModelRouteFields({
   showProtocolFields = true,
 }: ModelRouteFieldsProps) {
   const modelOptions = getModelOptions(providerConfigs, draft.provider, draft.model);
+  const usesChatGPTPlan = draft.provider === "chatgpt_plus";
 
   return (
     <div className={`grid gap-3 ${showProtocolFields ? "md:grid-cols-6" : "md:grid-cols-4"}`}>
@@ -85,19 +86,21 @@ export default function ModelRouteFields({
       </div>
 
       <div className="space-y-1">
-        <div className="text-xs text-muted-foreground">温度</div>
+        <div className="text-xs text-muted-foreground">温度{usesChatGPTPlan ? "（由服务决定）" : ""}</div>
         <Input
           value={draft.temperature}
           placeholder={temperaturePlaceholder}
+          disabled={usesChatGPTPlan}
           onChange={(event) => onPatch({ temperature: event.target.value })}
         />
       </div>
 
       <div className="space-y-1">
-        <div className="text-xs text-muted-foreground">最大输出长度</div>
+        <div className="text-xs text-muted-foreground">最大输出长度{usesChatGPTPlan ? "（由服务决定）" : ""}</div>
         <Input
           value={draft.maxTokens}
           placeholder={maxTokensPlaceholder}
+          disabled={usesChatGPTPlan}
           onChange={(event) => onPatch({ maxTokens: event.target.value })}
         />
       </div>
@@ -106,7 +109,8 @@ export default function ModelRouteFields({
         <div className="space-y-1">
           <div className="text-xs text-muted-foreground">请求协议</div>
           <Select
-            value={draft.requestProtocol}
+            value={usesChatGPTPlan ? "openai_compatible" : draft.requestProtocol}
+            disabled={usesChatGPTPlan}
             onValueChange={(value) => {
               const nextProtocol = value as ModelRouteRequestProtocol;
               onPatch({
@@ -133,7 +137,8 @@ export default function ModelRouteFields({
         <div className="space-y-1">
           <div className="text-xs text-muted-foreground">结构化格式</div>
           <Select
-            value={draft.structuredResponseFormat}
+            value={usesChatGPTPlan ? "prompt_json" : draft.structuredResponseFormat}
+            disabled={usesChatGPTPlan}
             onValueChange={(value) => onPatch({
               structuredResponseFormat: value as ModelRouteStructuredResponseFormat,
             })}

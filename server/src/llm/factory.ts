@@ -25,6 +25,7 @@ import {
   PROVIDERS,
   resolveProviderBaseUrl,
 } from "./providers";
+import { chatGPTPlanService } from "../platform/llm/chatgptPlan/ChatGPTPlanService";
 
 interface LLMOptions {
   model?: string;
@@ -396,7 +397,9 @@ export function createLLMFromResolvedOptions(resolved: ResolvedLLMClientOptions)
       timeoutMs: resolved.timeoutMs,
     }) as ChatOpenAI
     : new ChatOpenAI({
-      apiKey: resolved.apiKey ?? "ollama",
+      apiKey: resolved.provider === "chatgpt_plus"
+        ? chatGPTPlanService.getBridgeApiKey()
+        : resolved.apiKey ?? "ollama",
       model: resolved.model,
       modelName: resolved.model,
       temperature: resolved.temperature,
