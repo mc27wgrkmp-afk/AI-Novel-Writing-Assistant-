@@ -63,10 +63,17 @@ const EMPTY_FORM: SetupForm = {
 };
 
 function providerDescription(provider: QuickSetupProviderOption): string {
-  if (provider.id === "deepseek") return "推荐 DeepSeek Flash，兼顾中文长篇质量与响应速度";
+  if (provider.id === "deepseek") return "推荐 DeepSeek V4.1 Flash（API 模型名：deepseek-flash），兼顾中文长篇质量与响应速度";
   if (provider.id === "ollama") return "使用本机模型，不要求 API Key";
   if (provider.id === "openai") return "适合通用规划、正文与结构化任务";
   return provider.configured ? "已有配置，可以直接检测并设为全局默认" : "配置后可用于整条小说生产链";
+}
+
+function modelDisplayName(providerId: string | null | undefined, model: string): string {
+  if (providerId === "deepseek" && model === "deepseek-flash") {
+    return "DeepSeek V4.1 Flash · deepseek-flash";
+  }
+  return model;
 }
 
 export default function QuickSetupDialog(props: QuickSetupDialogProps) {
@@ -349,7 +356,7 @@ export default function QuickSetupDialog(props: QuickSetupDialogProps) {
                       ? <Badge>已选择</Badge>
                       : provider.configured ? <Badge variant="outline">已有配置</Badge> : null}
                   </div>
-                <div className="mt-3 text-xs text-muted-foreground">推荐模型：{provider.currentModel || provider.defaultModel}</div>
+                <div className="mt-3 text-xs text-muted-foreground">推荐模型：{modelDisplayName(provider.id, provider.currentModel || provider.defaultModel)}</div>
               </button>
               ))}
               {!showAllProviderChoices ? (
@@ -427,7 +434,7 @@ export default function QuickSetupDialog(props: QuickSetupDialogProps) {
                     className={cn("rounded-full border px-3 py-1.5 text-xs", form.model === model && "border-primary bg-primary/10 text-primary")}
                     onClick={() => setForm((current) => ({ ...current, model }))}
                   >
-                    {model}
+                    {modelDisplayName(form.provider, model)}
                   </button>
                 ))}
               </div>

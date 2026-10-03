@@ -8,6 +8,7 @@ import type {
 } from "@ai-novel/shared/types/novel";
 import { getLLM, resolveLLMClientOptions } from "./factory";
 import { getGeminiGatewayBlockMessage } from "./geminiGatewayAvailability";
+import { isDeepSeekThinkingModeProvider } from "./reasoning";
 import {
   MODEL_ROUTE_TASK_TYPES,
   resolveModel,
@@ -110,6 +111,11 @@ async function testPlainConnection(input: {
   requestProtocol?: ModelRouteRequestProtocol;
 }): Promise<LLMConnectivityStatus> {
   try {
+    const disableThinkingForProbe = isDeepSeekThinkingModeProvider(
+      input.provider,
+      input.baseURL,
+      input.model,
+    );
     const resolved = await resolveLLMClientOptions(input.provider, {
       apiKey: input.apiKey,
       baseURL: input.baseURL,
@@ -117,6 +123,7 @@ async function testPlainConnection(input: {
       model: input.model,
       temperature: 0.1,
       maxTokens: 16,
+      ...(disableThinkingForProbe ? { reasoningEnabled: false } : {}),
       requestProtocol: input.requestProtocol,
     });
     const llm = await getLLM(input.provider, {
@@ -126,6 +133,7 @@ async function testPlainConnection(input: {
       model: resolved.model,
       temperature: 0.1,
       maxTokens: 16,
+      ...(disableThinkingForProbe ? { reasoningEnabled: false } : {}),
       requestProtocol: resolved.requestProtocol,
     });
     const start = Date.now();
