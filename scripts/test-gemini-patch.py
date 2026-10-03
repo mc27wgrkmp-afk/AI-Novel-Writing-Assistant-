@@ -53,4 +53,26 @@ class GatewayPatchTest(unittest.TestCase):
         chunk = json.loads(body.splitlines()[0].removeprefix('data: '))
         self.assertEqual(chunk['choices'][0]['delta']['content'], '{"status":"ok"}')
 
+    def test_html_verification_page_is_a_manual_pause_signal(self):
+        from unittest.mock import patch
+        with patch.object(self.gateway, 'gemini_stream_generate', return_value='<!doctype html><html>Verify</html>'):
+            with self.assertRaisesRegex(RuntimeError, 'verification required'):
+                self.gateway.GeminiHandler._call_gemini.__wrapped__(object(), 'test', 1, 0, None)
+
+    def test_rejected_generation_is_attempted_only_once(self):
+        from unittest.mock import patch
+        calls = []
+        def rejected(*args, **kwargs):
+            calls.append(1)
+            raise urllib.error.HTTPError('https://example.invalid', 429, 'Too many requests', {}, None)
+        class Opener:
+            open = staticmethod(rejected)
+        with patch.object(self.gateway, 'load_cookie', return_value=('', '')), \
+             patch.object(self.gateway.urllib.request, 'urlopen', side_effect=rejected), \
+             patch.object(self.gateway.urllib.request, 'build_opener', return_value=Opener()):
+            with self.assertRaises(urllib.error.HTTPError):
+                self.gateway.gemini_stream_generate('test', 1, 0)
+        self.assertEqual(calls, [1])
+        self.assertEqual(self.gateway.CONFIG['retry_attempts'], 1)
+
 if __name__ == '__main__': unittest.main()

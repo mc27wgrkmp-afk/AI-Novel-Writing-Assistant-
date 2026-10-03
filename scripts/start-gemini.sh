@@ -12,8 +12,9 @@ import json, sys
 from pathlib import Path
 path = Path(sys.argv[1])
 config = json.loads(path.read_text())
-config.setdefault('request_interval_sec', 30)
-config.setdefault('failure_cooldown_sec', 120)
+config['request_interval_sec'] = max(120, float(config.get('request_interval_sec', 120)))
+config['failure_cooldown_sec'] = max(900, float(config.get('failure_cooldown_sec', 900)))
+config['retry_attempts'] = 1
 config.setdefault('throttle_state_file', sys.argv[2])
 path.write_text(json.dumps(config, indent=2))
 path.chmod(0o600)

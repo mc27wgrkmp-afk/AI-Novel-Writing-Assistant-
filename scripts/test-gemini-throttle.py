@@ -40,4 +40,51 @@ class ThrottleTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'empty content'): call()
         with self.assertRaisesRegex(RuntimeError, 'cooling down'): call()
 
+    def test_verification_pause_survives_cooldown_and_restart(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'state.json'
+            config = {'request_interval_sec': 0, 'failure_cooldown_sec': 0}
+            calls = []
+            @GatewayThrottle(config, path).limit
+            def challenged():
+                calls.append(1)
+                raise RuntimeError('Gemini verification required: /sorry/')
+            with self.assertRaisesRegex(RuntimeError, 'verification required'):
+                challenged()
+            @GatewayThrottle(config, path).limit
+            def after_restart():
+                calls.append(2)
+                return ('ok', None)
+            for _ in range(3):
+                with self.assertRaisesRegex(RuntimeError, 'manual recovery'):
+                    after_restart()
+            self.assertEqual(calls, [1])
+
+    def test_rate_limit_requires_manual_recovery(self):
+        import urllib.error
+        throttle = GatewayThrottle({'request_interval_sec': 0})
+        def reject():
+            raise urllib.error.HTTPError('https://example.invalid', 429, 'Too many requests', {}, None)
+        with self.assertRaises(urllib.error.HTTPError):
+            throttle.limit(reject)()
+        self.assertTrue(throttle.verification_required)
+        with self.assertRaisesRegex(RuntimeError, 'manual recovery'):
+            throttle.limit(lambda: ('ok', None))()
+
+    def test_explicit_resume_preserves_cooldown_and_spacing(self):
+        import json
+        import subprocess
+        import sys
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'state.json'
+            next_at = time.time() + 600
+            blocked_until = time.time() + 900
+            path.write_text(json.dumps({'next_at': next_at, 'blocked_until': blocked_until, 'verification_required': True}))
+            subprocess.run([sys.executable, str(Path(__file__).with_name('gemini_throttle.py')),
+                            '--resume-after-verification', '--state-path', str(path)], check=True, capture_output=True)
+            state = json.loads(path.read_text())
+            self.assertFalse(state['verification_required'])
+            self.assertEqual(state['next_at'], next_at)
+            self.assertEqual(state['blocked_until'], blocked_until)
+
 if __name__ == '__main__': unittest.main()
