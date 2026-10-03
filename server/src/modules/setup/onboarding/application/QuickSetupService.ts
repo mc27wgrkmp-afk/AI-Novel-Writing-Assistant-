@@ -249,6 +249,9 @@ export async function completeQuickSetup(
   const plainReady = probe.plain?.ok === true;
   const structuredReady = probe.structured?.ok === true;
   if (!plainReady || !structuredReady) {
+    if (!plainReady && !probe.structured && probe.error) {
+      throw new AppError(`模型检测未通过。${probe.error}`, 400);
+    }
     const details = [
       !plainReady ? `普通文本：${probe.plain?.error ?? probe.error ?? "连接失败"}` : "",
       !structuredReady ? `结构化输出：${probe.structured?.error ?? probe.error ?? "连接失败"}` : "",

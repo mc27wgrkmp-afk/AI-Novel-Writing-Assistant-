@@ -7,6 +7,7 @@ import type {
   ModelRouteTaskType,
 } from "@ai-novel/shared/types/novel";
 import { getLLM, resolveLLMClientOptions } from "./factory";
+import { getGeminiGatewayBlockMessage } from "./geminiGatewayAvailability";
 import {
   MODEL_ROUTE_TASK_TYPES,
   resolveModel,
@@ -310,6 +311,10 @@ async function testConnection(input: {
     for (const requestProtocol of getProtocolCandidates(input.requestProtocol)) {
       const candidate = await testPlainConnection({ ...input, requestProtocol });
       if (!plain || candidate.ok) plain = candidate;
+      const gatewayBlock = getGeminiGatewayBlockMessage(candidate.error);
+      if (gatewayBlock) {
+        return { ...candidate, error: gatewayBlock, plain: candidate.plain ? { ...candidate.plain, error: gatewayBlock } : null };
+      }
       if (candidate.ok) {
         break;
       }
@@ -326,6 +331,11 @@ async function testConnection(input: {
       })) {
         const candidate = await testStructuredConnection({ ...input, requestProtocol, structuredResponseFormat });
         if (!structured || candidate.ok) structured = candidate;
+        const gatewayBlock = getGeminiGatewayBlockMessage(candidate.error);
+        if (gatewayBlock) {
+          return { ...candidate, ok: false, error: gatewayBlock, plain: plain?.plain ?? null,
+            structured: candidate.structured ? { ...candidate.structured, error: gatewayBlock } : null };
+        }
         if (candidate.ok) {
           break;
         }

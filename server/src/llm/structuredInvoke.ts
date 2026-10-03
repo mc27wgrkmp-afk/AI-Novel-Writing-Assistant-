@@ -1,4 +1,5 @@
 import type { ZodType } from "zod";
+import { getGeminiGatewayBlockMessage } from "./geminiGatewayAvailability";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import type { BaseMessage } from "@langchain/core/messages";
 import type { LLMProvider, ProviderAuthMode } from "@ai-novel/shared/types/llm";
@@ -405,7 +406,7 @@ async function tryStructuredStrategies<T>(input: {
         fallbackAvailable: input.fallbackAvailable,
         fallbackUsed: input.fallbackUsed,
       });
-      if (lastError.category === "transport_error" && !lastError.retryWithNextStrategy) {
+      if (getGeminiGatewayBlockMessage(lastError) || (lastError.category === "transport_error" && !lastError.retryWithNextStrategy)) {
         break;
       }
       if (lastError.category === "schema_mismatch" && strategy === "prompt_json") {
@@ -442,7 +443,8 @@ async function tryStructuredStrategiesWithTransportRetries<T>(input: {
     } catch (error) {
       const structuredError = error instanceof StructuredOutputError ? error : null;
       if (
-        structuredError?.category !== "transport_error"
+        Boolean(getGeminiGatewayBlockMessage(error))
+        || structuredError?.category !== "transport_error"
         || retryAttempt >= input.retryCount
         || input.baseInput.signal?.aborted
       ) {
@@ -496,7 +498,7 @@ export async function invokeStructuredLlmDetailed<T>(input: StructuredInvokeInpu
       retryCount: transportRetryCount,
     });
   } catch (primaryError) {
-    if (!fallbackEnabled || !fallbackSettings) {
+    if (!fallbackEnabled || !fallbackSettings || (getGeminiGatewayBlockMessage(primaryError) && fallbackSettings.provider === primaryTarget.provider)) {
       throw primaryError;
     }
 
