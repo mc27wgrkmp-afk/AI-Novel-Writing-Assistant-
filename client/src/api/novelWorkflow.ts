@@ -69,3 +69,10 @@ export async function syncNovelWorkflowStage(payload: {
   const { data } = await apiClient.post<ApiResponse<UnifiedTaskDetail | null>>("/novel-workflows/sync-stage", payload);
   return data;
 }
+
+export async function retryNovelWorkflow(directorTaskId: string) {
+  const { data } = await apiClient.post<ApiResponse<DirectorCommandAcceptedResponse>>(
+    `/novels/director/tasks/${directorTaskId}/commands`, { commandType: "retry" },
+  );
+  return data;
+}

@@ -18,7 +18,7 @@ import {
   type DirectorRunMode,
   type DirectorWorldSetupMode,
 } from "@ai-novel/shared/types/novelDirector";
-import { bootstrapNovelWorkflow, continueNovelWorkflow } from "@/api/novelWorkflow";
+import { bootstrapNovelWorkflow, continueNovelWorkflow, retryNovelWorkflow } from "@/api/novelWorkflow";
 import {
   composeDirectorIdeaConstellation,
   confirmDirectorCandidate,
@@ -525,6 +525,7 @@ export function useAutoDirectorCreateController(input: UseAutoDirectorCreateCont
       if (!taskId) {
         throw new Error("当前没有可继续的自动导演任务。");
       }
+      if (directorTask?.pendingManualRecovery || directorTask?.status === "failed") return retryNovelWorkflow(taskId);
       return continueNovelWorkflow(taskId, { continuationMode: "resume" });
     },
     onSuccess: async (response) => {
