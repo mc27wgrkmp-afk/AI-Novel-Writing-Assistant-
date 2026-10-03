@@ -43,6 +43,7 @@ export interface APIKeyStatus {
 export interface ChatGPTPlanModel {
   slug: string;
   displayName: string;
+  manuallyAdded?: boolean;
 }
 
 export interface ChatGPTPlanSession {

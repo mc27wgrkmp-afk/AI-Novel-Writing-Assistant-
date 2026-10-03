@@ -1,4 +1,4 @@
-import type { LLMProvider, ProviderAuthMode, ReasoningEffort } from "@ai-novel/shared/types/llm";
+import { REASONING_EFFORTS, type LLMProvider, type ProviderAuthMode, type ReasoningEffort } from "@ai-novel/shared/types/llm";
 import type { ModelRouteRequestProtocol } from "@ai-novel/shared/types/novel";
 import { ChatOpenAI } from "@langchain/openai";
 import type { PromptInvocationMeta } from "../prompting/core/promptTypes";
@@ -161,8 +161,8 @@ function toProviderSecret(item: {
     authMode: normalizeProviderAuthMode(item.authMode),
     displayName: item.displayName ?? undefined,
     reasoningEnabled: item.reasoningEnabled ?? undefined,
-    reasoningEffort: item.reasoningEffort === "low" || item.reasoningEffort === "high" || item.reasoningEffort === "max"
-      ? item.reasoningEffort
+    reasoningEffort: (REASONING_EFFORTS as readonly string[]).includes(item.reasoningEffort ?? "")
+      ? item.reasoningEffort as ReasoningEffort
       : undefined,
     concurrencyLimit: normalizeLimitValue(item.concurrencyLimit),
     requestIntervalMs: normalizeLimitValue(item.requestIntervalMs),
@@ -307,8 +307,16 @@ export async function resolveLLMClientOptions(
     })
     : null;
   const usesNativeStructured = structuredStrategy != null && structuredStrategy !== "prompt_json";
-  const requestedReasoningEnabled = options.reasoningEnabled ?? dbSecret?.reasoningEnabled ?? true;
-  const requestedReasoningEffort = options.reasoningEffort ?? dbSecret?.reasoningEffort ?? "high";
+  const isDifferentChatGPTModel = resolvedProvider === "chatgpt_plus" && model !== dbSecret?.model;
+  const requestedReasoningEnabled = options.reasoningEnabled
+    ?? (isDifferentChatGPTModel ? undefined : dbSecret?.reasoningEnabled) ?? true;
+  const modelReasoningDefault = resolvedProvider === "chatgpt_plus"
+    ? model === "gpt-6-luna" ? "max" : "medium"
+    : "high";
+  const savedReasoningEffort = isDifferentChatGPTModel
+    ? undefined
+    : dbSecret?.reasoningEffort;
+  const requestedReasoningEffort = options.reasoningEffort ?? savedReasoningEffort ?? modelReasoningDefault;
   const shouldForceDisableReasoning = Boolean(
     structuredProfile
       && structuredProfile.requiresNonThinkingForStructured

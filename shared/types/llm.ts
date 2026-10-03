@@ -30,7 +30,7 @@ export const EMBEDDING_LLM_PROVIDERS = [
 export type BuiltinLLMProvider = typeof LLM_PROVIDERS[number];
 export type LLMProvider = BuiltinLLMProvider | (string & {});
 
-export const REASONING_EFFORTS = ["low", "high", "max"] as const;
+export const REASONING_EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
 export type ReasoningEffort = typeof REASONING_EFFORTS[number];
 
 export const PROVIDER_AUTH_MODES = ["bearer", "x-api-key", "none"] as const;

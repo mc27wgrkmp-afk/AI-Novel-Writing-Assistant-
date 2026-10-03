@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ExternalLink, LoaderCircle, LogIn, LogOut, RefreshCw, ShieldCheck } from "lucide-react";
+import type { ReasoningEffort } from "@ai-novel/shared/types/llm";
 import type { APIKeyStatus } from "@/api/settings";
 import {
   connectChatGPTPlan,
@@ -74,7 +75,7 @@ export default function ChatGPTPlanConnection(props: {
           ? provider?.currentModel
           : availableModels[0]?.slug;
         if (savedModel) {
-          await saveAPIKeySetting("chatgpt_plus", { model: savedModel, isActive: true });
+          await saveAPIKeySetting("chatgpt_plus", { model: savedModel, isActive: true, reasoningEnabled: true, reasoningEffort: savedModel === "gpt-6-luna" ? "max" : "medium" });
         }
       }
       if (response.data) {
@@ -90,10 +91,20 @@ export default function ChatGPTPlanConnection(props: {
   });
 
   const modelMutation = useMutation({
-    mutationFn: (nextModel: string) => saveAPIKeySetting("chatgpt_plus", { model: nextModel, isActive: true }),
+    mutationFn: (nextModel: string) => saveAPIKeySetting("chatgpt_plus", { model: nextModel, isActive: true, reasoningEnabled: true, reasoningEffort: nextModel === "gpt-6-luna" ? "max" : "medium" }),
     onSuccess: refreshSettings,
     onError: () => setSelectedModel(provider?.currentModel ?? ""),
   });
+
+  const effortMutation = useMutation({
+    mutationFn: (reasoningEffort: ReasoningEffort) => saveAPIKeySetting("chatgpt_plus", {
+      model, isActive: true, reasoningEnabled: true, reasoningEffort,
+    }),
+    onSuccess: refreshSettings,
+  });
+  const effort = provider?.currentModel === model && provider.reasoningEnabled && provider.reasoningEffort
+    ? provider.reasoningEffort
+    : model === "gpt-6-luna" ? "max" : "medium";
 
   const disconnectMutation = useMutation({
     mutationFn: disconnectChatGPTPlan,
@@ -117,7 +128,7 @@ export default function ChatGPTPlanConnection(props: {
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground">
-            授权后可直接选择当前账号可用的文本模型，不需要填写 API Key。
+            授权后可选择文本模型和思考深度，不需要填写 API Key。Sol 默认中等思考，Luna 默认最大思考。
           </p>
           {session?.identity?.email || session?.identity?.name ? (
             <p className="text-sm text-muted-foreground">
@@ -149,6 +160,9 @@ export default function ChatGPTPlanConnection(props: {
           ) : null}
           {disconnectMutation.isError ? (
             <p className="text-sm text-destructive">{disconnectMutation.error instanceof Error ? disconnectMutation.error.message : "ChatGPT 断开失败，请重试。"}</p>
+          ) : null}
+          {effortMutation.isError ? (
+            <p className="text-sm text-destructive">{effortMutation.error instanceof Error ? effortMutation.error.message : "保存思考深度失败。"}</p>
           ) : null}
           {modelMutation.isError ? (
             <p className="text-sm text-destructive">{modelMutation.error instanceof Error ? modelMutation.error.message : "保存 ChatGPT 模型失败。"}</p>
@@ -207,6 +221,10 @@ export default function ChatGPTPlanConnection(props: {
         ) : null}
       </div>
 
+      {hasPlanAccess && models.some((item) => item.manuallyAdded) ? (
+        <p className="mt-3 text-xs text-muted-foreground">手动添加的模型在调用时确认账号权限；可先点击「检测并用于创作」。</p>
+      ) : null}
+
       {hasPlanAccess ? (
         <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
           <div className="min-w-0 flex-1">
@@ -216,7 +234,7 @@ export default function ChatGPTPlanConnection(props: {
                 setSelectedModel(nextModel);
                 modelMutation.mutate(nextModel);
               }}
-              disabled={!models.length || modelMutation.isPending || modelsQuery.isLoading}
+              disabled={!models.length || modelMutation.isPending || effortMutation.isPending || modelsQuery.isLoading}
             >
               <SelectTrigger>
                 <SelectValue placeholder={modelsQuery.isLoading ? "读取可用模型…" : "选择 ChatGPT 模型"} />
@@ -224,12 +242,28 @@ export default function ChatGPTPlanConnection(props: {
               <SelectContent>
                 {models.map((item) => (
                   <SelectItem key={item.slug} value={item.slug}>
-                    {item.displayName || item.slug}
+                    {item.displayName || item.slug}{item.manuallyAdded ? "（手动添加）" : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
+          <label className="flex items-center gap-2 text-sm">
+            思考深度
+            <select
+              aria-label="ChatGPT 思考深度"
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+              value={effort}
+              disabled={!model || busy || modelMutation.isPending || effortMutation.isPending}
+              onChange={(event) => effortMutation.mutate(event.target.value as ReasoningEffort)}
+            >
+              <option value="low">低</option>
+              <option value="medium">中</option>
+              <option value="high">高</option>
+              <option value="xhigh">很高</option>
+              <option value="max">最大</option>
+            </select>
+          </label>
           <Button
             size="sm"
             variant="outline"
@@ -242,7 +276,7 @@ export default function ChatGPTPlanConnection(props: {
           {props.onUseForCreation ? (
             <Button
               size="sm"
-              disabled={!model || busy || modelMutation.isPending || modelsQuery.isFetching || props.usingForCreation}
+              disabled={!model || busy || modelMutation.isPending || effortMutation.isPending || modelsQuery.isFetching || props.usingForCreation}
               onClick={() => props.onUseForCreation?.(model)}
             >
               {props.usingForCreation ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}

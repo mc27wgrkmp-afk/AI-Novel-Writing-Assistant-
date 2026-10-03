@@ -16,7 +16,150 @@ const chatCompletionSchema = z.object({
     content: z.string(),
   })).min(1).max(200),
   stream: z.boolean().optional(),
+  reasoning_effort: z.enum(["none", "low", "medium", "high", "xhigh", "max"]).optional(),
 }).passthrough();
+
+type ErrorRecord = Record<string, unknown>;
+
+interface UpstreamErrorDetails {
+  message: string;
+  status?: number;
+  type?: string;
+  code?: string;
+  param?: string;
+  requestId?: string;
+}
+
+const UPSTREAM_STATUS_BY_CODE = new Map<string, number>([
+  ["subscription_sharing_user_not_eligible", 403],
+  ["subscription_sharing_usage_limit_exceeded", 429],
+  ["subscription_sharing_usage_unavailable", 503],
+  ["subscription_sharing_unsupported_capability", 400],
+  ["subscription_sharing_route_not_supported", 403],
+  ["subscription_sharing_invalid_user", 401],
+  ["chatpass_v2_scope_not_authorized", 403],
+  ["chatpass_v2_invalid_authorization_context", 403],
+  ["subscription_sharing_user_unavailable", 503],
+]);
+
+function asRecord(value: unknown): ErrorRecord | undefined {
+  return typeof value === "object" && value !== null
+    ? value as ErrorRecord
+    : undefined;
+}
+
+function readErrorString(...values: unknown[]): string | undefined {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim() && value.length <= 512) {
+      return value.trim();
+    }
+  }
+  return undefined;
+}
+
+function readHttpStatus(...values: unknown[]): number | undefined {
+  for (const value of values) {
+    const status = typeof value === "number"
+      ? value
+      : typeof value === "string" && /^\d{3}$/.test(value)
+        ? Number(value)
+        : Number.NaN;
+    if (Number.isInteger(status) && status >= 400 && status <= 599) return status;
+  }
+  return undefined;
+}
+
+function readResponseHeader(headers: unknown, name: string): string | undefined {
+  const headerRecord = asRecord(headers);
+  if (!headerRecord) return undefined;
+  const get = headerRecord.get;
+  if (typeof get === "function") {
+    try {
+      return readErrorString(get.call(headers, name));
+    } catch {
+      return undefined;
+    }
+  }
+  const key = Object.keys(headerRecord).find((candidate) => candidate.toLowerCase() === name);
+  return key ? readErrorString(headerRecord[key]) : undefined;
+}
+
+function getUpstreamErrorDetails(error: unknown, fallbackMessage: string): UpstreamErrorDetails {
+  const top = asRecord(error) ?? {};
+  const cause = asRecord(top.cause) ?? {};
+  const response = asRecord(top.response) ?? {};
+  const body = asRecord(response.data) ?? asRecord(response.body) ?? asRecord(top.data) ?? {};
+  const bodyError = asRecord(body.error) ?? asRecord(top.error) ?? {};
+  const headers = response.headers ?? top.headers;
+  const message = readErrorString(
+    error instanceof Error ? error.message : undefined,
+    bodyError.message,
+    body.detail,
+    body.message,
+    top.message,
+    cause.message,
+  ) ?? fallbackMessage;
+  const isPolicyRestriction = message.toLowerCase().includes("policy or permission restriction prevented this request");
+  const code = readErrorString(bodyError.code, body.code, top.errorCode, top.error_code, top.code, cause.code)
+    ?? (isPolicyRestriction ? "policy_or_permission_restriction" : undefined);
+  const status = readHttpStatus(
+    top.status,
+    top.statusCode,
+    top.status_code,
+    response.status,
+    body.status,
+    cause.status,
+  ) ?? (code ? UPSTREAM_STATUS_BY_CODE.get(code) : undefined)
+    ?? (isPolicyRestriction ? 403 : undefined);
+
+  return {
+    message,
+    status,
+    type: readErrorString(bodyError.type, body.type, top.type, cause.type),
+    code,
+    param: readErrorString(bodyError.param, body.param, top.param),
+    requestId: readErrorString(
+      body.request_id,
+      body.requestId,
+      bodyError.request_id,
+      bodyError.requestId,
+      top.request_id,
+      top.requestId,
+      top.requestID,
+      cause.request_id,
+      cause.requestId,
+      readResponseHeader(headers, "x-request-id"),
+    ),
+  };
+}
+
+function upstreamErrorBody(
+  details: UpstreamErrorDetails,
+  fallbackCode: string,
+  includeStatus = false,
+): Record<string, unknown> {
+  return {
+    error: {
+      message: details.message,
+      type: details.type ?? "upstream_error",
+      code: details.code ?? fallbackCode,
+      ...(details.param ? { param: details.param } : {}),
+    },
+    ...(details.requestId ? { request_id: details.requestId } : {}),
+    ...(includeStatus && details.status ? { upstream_status: details.status } : {}),
+  };
+}
+
+function writeUpstreamError(
+  res: Response,
+  error: unknown,
+  fallbackMessage: string,
+  fallbackCode: string,
+): void {
+  const details = getUpstreamErrorDetails(error, fallbackMessage);
+  if (details.requestId) res.setHeader("x-request-id", details.requestId);
+  res.status(details.status ?? 502).json(upstreamErrorBody(details, fallbackCode));
+}
 
 function isLoopbackAddress(value: string | undefined): boolean {
   if (!value) return false;
@@ -95,7 +238,7 @@ router.get("/v1/models", async (req, res) => {
       })),
     });
   } catch (error) {
-    writeOpenAIError(res, 502, error instanceof Error ? error.message : "Could not load ChatGPT models.", "model_list_failed");
+    writeUpstreamError(res, error, "Could not load ChatGPT models.", "model_list_failed");
   }
 });
 
@@ -116,7 +259,7 @@ router.post("/v1/chat/completions", async (req, res) => {
   try {
     models = await getModels();
   } catch (error) {
-    writeOpenAIError(res, 502, error instanceof Error ? error.message : "Could not load ChatGPT models.", "model_list_failed");
+    writeUpstreamError(res, error, "Could not load ChatGPT models.", "model_list_failed");
     return;
   }
   if (!models.some((model) => model.slug === request.model)) {
@@ -157,6 +300,7 @@ router.post("/v1/chat/completions", async (req, res) => {
     try {
       await chatGPTPlanService.streamResponse({
         model: request.model,
+        reasoningEffort: request.reasoning_effort,
         input,
         ...(instructions.length ? { instructions: instructions.join("\n\n") } : {}),
         signal: controller.signal,
@@ -180,8 +324,9 @@ router.post("/v1/chat/completions", async (req, res) => {
       res.end();
     } catch (error) {
       if (!res.writableEnded && !controller.signal.aborted) {
-        const message = error instanceof Error ? error.message : "The ChatGPT response stream failed.";
-        res.write(`event: error\ndata: ${JSON.stringify({ error: { message, type: "upstream_error", code: "chatgpt_response_failed" } })}\n\n`);
+        const details = getUpstreamErrorDetails(error, "The ChatGPT response stream failed.");
+        if (details.requestId && !res.headersSent) res.setHeader("x-request-id", details.requestId);
+        res.write(`event: error\ndata: ${JSON.stringify(upstreamErrorBody(details, "chatgpt_response_failed", true))}\n\n`);
         res.end();
       }
     }
@@ -191,6 +336,7 @@ router.post("/v1/chat/completions", async (req, res) => {
   try {
     const result = await chatGPTPlanService.streamResponse({
       model: request.model,
+      reasoningEffort: request.reasoning_effort,
       input,
       ...(instructions.length ? { instructions: instructions.join("\n\n") } : {}),
       signal: controller.signal,
@@ -203,7 +349,7 @@ router.post("/v1/chat/completions", async (req, res) => {
       choices: [{ index: 0, message: { role: "assistant", content: result.text }, finish_reason: "stop" }],
     });
   } catch (error) {
-    writeOpenAIError(res, 502, error instanceof Error ? error.message : "The ChatGPT response failed.", "chatgpt_response_failed");
+    writeUpstreamError(res, error, "The ChatGPT response failed.", "chatgpt_response_failed");
   }
 });
 

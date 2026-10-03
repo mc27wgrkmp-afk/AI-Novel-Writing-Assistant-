@@ -469,7 +469,7 @@ export default function SettingsPage() {
           }}
           onSetReasoning={(provider, reasoningEnabled, reasoningEffort) => {
             setActionResult("");
-            const effortLabel = reasoningEffort === "low" ? "低" : reasoningEffort === "max" ? "最大" : "高";
+            const effortLabel = reasoningEffort === "low" ? "低" : reasoningEffort === "medium" ? "中" : reasoningEffort === "xhigh" ? "很高" : reasoningEffort === "max" ? "最大" : "高";
             modelControlsMutation.mutate({
               provider,
               reasoningEnabled,

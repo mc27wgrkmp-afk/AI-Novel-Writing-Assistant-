@@ -163,6 +163,10 @@ Open-source AI novel writing assistant and long-form production studio.
 
 ### 2026-10-04
 
+#### 新增
+
+- ChatGPT 方案模型可选 GPT-6.1 Sol 与 GPT-6 Luna，并可设置思考深度；Sol 默认中等，Luna 默认最大。
+
 #### 优化
 
 - 快速配置和模型设置明确标注 DeepSeek V4.1 Flash 的 API 模型名 `deepseek-flash`。
@@ -170,6 +174,7 @@ Open-source AI novel writing assistant and long-form production studio.
 #### 修复
 
 - DeepSeek 连通性检测在短文本探测时关闭思考模式，避免思考过程占满输出预算后返回空正文、阻断配置。
+- ChatGPT 连接遵循本机代理设置，解决登录请求未使用代理时出现的权限限制报错。
 
 完整历史更新见 [docs/releases/release-notes.md](./docs/releases/release-notes.md)。
 

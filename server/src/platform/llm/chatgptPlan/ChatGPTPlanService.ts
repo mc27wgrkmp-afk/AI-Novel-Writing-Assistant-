@@ -5,6 +5,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { resolveAppDataRoot, resolveWorkspaceRoot } from "../../../runtime/appPaths";
 import { macOSCredentialEncryption } from "./macOSCredentialEncryption";
+import { withChatGPTNetwork } from "./chatGPTNetwork";
 
 export interface ChatGPTPlanSession {
   status: "disconnected" | "connecting" | "connected" | "reauth_required";
@@ -18,6 +19,7 @@ export interface ChatGPTPlanSession {
 export interface ChatGPTPlanModel {
   slug: string;
   displayName: string;
+  manuallyAdded?: boolean;
 }
 
 interface ChatGPTPlanClient {
@@ -27,6 +29,7 @@ interface ChatGPTPlanClient {
   disconnect(): Promise<void>;
   streamResponse(options: {
     model: string;
+    reasoningEffort?: "none" | "low" | "medium" | "high" | "xhigh" | "max";
     input: Array<{ role: "user" | "assistant"; content: string }>;
     instructions?: string;
     signal?: AbortSignal;
@@ -57,6 +60,17 @@ const bridgeApiKey = randomBytes(32).toString("hex");
 let clientPromise: Promise<ChatGPTPlanClient> | undefined;
 let availableModels: ChatGPTPlanModel[] = [];
 let availableModelsFetchedAt = 0;
+
+// Explicit user-selected models can remain callable while the upstream catalog lags.
+// These are configuration choices, not a claim of entitlement; inference still
+// passes through the official SDK and reports upstream permission errors.
+function addConfiguredModels(models: ChatGPTPlanModel[]): ChatGPTPlanModel[] {
+  const configured = [
+    { slug: "gpt-6.1-sol", displayName: "GPT-6.1 Sol", manuallyAdded: true },
+    { slug: "gpt-6-luna", displayName: "GPT-6 Luna", manuallyAdded: true },
+  ];
+  return [...configured.filter((item) => !models.some((model) => model.slug === item.slug)), ...models];
+}
 
 function errorCode(error: unknown): string | undefined {
   return typeof error === "object" && error !== null && "code" in error
@@ -122,15 +136,24 @@ async function getClient(): Promise<ChatGPTPlanClient> {
   const availability = getChatGPTPlanAvailability();
   if (!availability.available) throw new Error(availability.message ?? "ChatGPT sign-in is unavailable.");
   if (!clientPromise) {
-    clientPromise = loadSdk(sdkEntryPath()).then((sdk) => sdk.createChatGPT({
-      appName: "AI Novel Writing Assistant",
-      appId: "ai-novel-writing-assistant",
-      redirectPort: 0,
-      storageDir: path.join(resolveAppDataRoot(), "chatgpt-plan"),
-      sendHostId: true,
-      credentialEncryption: macOSCredentialEncryption,
-      openBrowser: openAuthorizationPage,
-    })).catch((error: unknown) => {
+    clientPromise = loadSdk(sdkEntryPath()).then((sdk) => {
+      const client = sdk.createChatGPT({
+        appName: "AI Novel Writing Assistant",
+        appId: "ai-novel-writing-assistant",
+        redirectPort: 0,
+        storageDir: path.join(resolveAppDataRoot(), "chatgpt-plan"),
+        sendHostId: true,
+        credentialEncryption: macOSCredentialEncryption,
+        openBrowser: openAuthorizationPage,
+      });
+      return {
+        signIn: (options) => withChatGPTNetwork(() => client.signIn(options)),
+        getSession: () => withChatGPTNetwork(() => client.getSession()),
+        listModels: (options) => withChatGPTNetwork(() => client.listModels(options)),
+        disconnect: () => withChatGPTNetwork(() => client.disconnect()),
+        streamResponse: (options) => withChatGPTNetwork(() => client.streamResponse(options), options.reasoningEffort),
+      } satisfies ChatGPTPlanClient;
+    }).catch((error: unknown) => {
       clientPromise = undefined;
       throw error;
     });
@@ -159,7 +182,7 @@ export const chatGPTPlanService = {
       return { session, models: [], modelError: null };
     }
     try {
-      availableModels = await client.listModels();
+      availableModels = addConfiguredModels(await client.listModels());
       availableModelsFetchedAt = Date.now();
       return { session, models: availableModels, modelError: null };
     } catch (error) {
@@ -176,14 +199,14 @@ export const chatGPTPlanService = {
       return availableModels.map((model) => ({ ...model }));
     }
     const client = await getClient();
-    availableModels = await client.listModels();
+    availableModels = addConfiguredModels(await client.listModels());
     availableModelsFetchedAt = Date.now();
     return availableModels.map((model) => ({ ...model }));
   },
 
   async refreshModels(): Promise<ChatGPTPlanModel[]> {
     const client = await getClient();
-    availableModels = await client.listModels();
+    availableModels = addConfiguredModels(await client.listModels());
     availableModelsFetchedAt = Date.now();
     return availableModels.map((model) => ({ ...model }));
   },

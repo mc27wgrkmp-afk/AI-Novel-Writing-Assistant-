@@ -151,6 +151,17 @@ export function resolveProviderReasoningBehavior(input: {
   reasoningEnabled: boolean;
   reasoningEffort?: ReasoningEffort | null;
 }): ProviderReasoningBehavior {
+  if (input.provider === "chatgpt_plus") {
+    const effort = normalizeReasoningEffort(input.reasoningEffort);
+    return {
+      reasoningEnabled: input.reasoningEnabled,
+      reasoningEffort: input.reasoningEnabled ? effort : null,
+      modelKwargs: { reasoning_effort: input.reasoningEnabled ? effort : "none" },
+      includeRawResponse: false,
+      usesAccumulatedStreamDeltas: false,
+    };
+  }
+
   if (isGlmThinkingModeProvider(input.provider, input.baseURL, input.model)) {
     return {
       reasoningEnabled: input.reasoningEnabled,

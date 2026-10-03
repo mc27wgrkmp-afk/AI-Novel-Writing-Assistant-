@@ -257,7 +257,7 @@ function buildBuiltInProviderStatus(
   const isActive = provider === "chatgpt_plus"
     ? Boolean(chatGPTPlanSharing && (item?.isActive ?? true))
     : item?.isActive ?? isConfigured;
-  const supportsReasoningEffort = isDeepSeekThinkingModeProvider(provider, currentBaseURL, currentModel);
+  const supportsReasoningEffort = (provider === "chatgpt_plus" || isDeepSeekThinkingModeProvider(provider, currentBaseURL, currentModel));
 
   return {
     provider,
@@ -718,10 +718,10 @@ router.put(
           authMode: normalizeProviderAuthMode(data.authMode),
           isActive: data.isActive,
           reasoningEnabled: data.reasoningEnabled ?? true,
-          reasoningEffort: isDeepSeekThinkingModeProvider(provider, data.baseURL ?? undefined, data.model ?? undefined)
+          reasoningEffort: (provider === "chatgpt_plus" || isDeepSeekThinkingModeProvider(provider, data.baseURL ?? undefined, data.model ?? undefined))
             ? normalizeReasoningEffort(data.reasoningEffort)
             : null,
-          supportsReasoningEffort: isDeepSeekThinkingModeProvider(provider, data.baseURL ?? undefined, data.model ?? undefined),
+          supportsReasoningEffort: (provider === "chatgpt_plus" || isDeepSeekThinkingModeProvider(provider, data.baseURL ?? undefined, data.model ?? undefined)),
           hiddenModels,
           concurrencyLimit: normalizeProviderLimit(data.concurrencyLimit),
           requestIntervalMs: normalizeProviderLimit(data.requestIntervalMs),
