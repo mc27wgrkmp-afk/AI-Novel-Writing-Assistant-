@@ -53,3 +53,11 @@ bash scripts/start-gemini.sh
 网关先获取并检查完整上游回复，再按 SSE 格式交给应用，因此本地网关的首段输出会等待本次生成完成。上游 HTTP 错误和空回复会以 502 返回，避免任务把空请求记为成功。运行 `.local/gemini-venv/bin/python scripts/test-gemini-patch.py` 可离线验证成功、空回复与上游拒绝三条分支。
 
 2026-10-03 自动导演恢复排查：本地已有章节与项目保留；第 2 章的模型拒绝答复改为待修复，未当成有效定稿。数据操作前快照保存在 `.local-data/recovery-before-stream-fix.sqlite3`。当前实测上游 405，恢复令牌后仍未打通生成，模型可用前任务保持待处理。
+
+## 网关请求降频
+
+默认 OpenAI 兼容生成请求串行执行，每次完成后至少等待 30 秒再发下一次；网关启动后首次请求也等待 30 秒。上游报错或空回复会进入两分钟冷却，冷却期间立即返回提示，不访问 Google。冷却时间戳保存在 `.local-data/gemini-throttle.json`，重启不会清除。此措施用于验证请求频率的影响，不保证解决上游拒绝。
+
+可在 `.local/gemini-web2api/config.json` 修改 `request_interval_sec`（默认 30）和 `failure_cooldown_sec`（默认 120），重启网关生效。上游单次尝试保持 `retry_attempts: 1`，避免一次应用调用产生密集重试。离线验证：`.local/gemini-venv/bin/python scripts/test-gemini-throttle.py`。
+
+降频启用后的单次真实请求仍返回上游 HTTP 302，网关向应用返回 502；紧接着的重试约 3 毫秒返回冷却提示，未再次调用上游。六项离线测试通过，生成访问尚未恢复。
