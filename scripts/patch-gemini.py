@@ -30,8 +30,29 @@ if marker in source:
     end = source.index('class GeminiHandler(BaseHTTPRequestHandler):', start)
     source = source[:start] + source[end:]
 helper_dir = str(Path(__file__).resolve().parent)
-injection = marker + "\nCONFIG['retry_attempts'] = 1\nimport sys as _factory_sys\n_factory_sys.path.insert(0, " + repr(helper_dir) + ")\nfrom gemini_throttle import GatewayThrottle\n_factory_throttle = GatewayThrottle(CONFIG, CONFIG.get('throttle_state_file'))\n\n"
+injection = marker + """
+CONFIG['retry_attempts'] = 1
+import sys as _factory_sys
+import threading as _factory_threading
+import functools as _factory_functools
+""" + "_factory_sys.path.insert(0, " + repr(helper_dir) + ")\n" + """from gemini_throttle import GatewayThrottle
+_factory_throttle = None
+_factory_throttle_init_lock = _factory_threading.Lock()
+
+def _factory_limit(function):
+    @_factory_functools.wraps(function)
+    def limited(*args, **kwargs):
+        global _factory_throttle
+        # main() loads config after module import; defer construction until then.
+        with _factory_throttle_init_lock:
+            if _factory_throttle is None:
+                _factory_throttle = GatewayThrottle(CONFIG, CONFIG.get('throttle_state_file'))
+            throttle = _factory_throttle
+        return throttle.limit(function)(*args, **kwargs)
+    return limited
+
+"""
 source = source.replace('class GeminiHandler(BaseHTTPRequestHandler):', injection + 'class GeminiHandler(BaseHTTPRequestHandler):')
-source = source.replace('    @_factory_throttle.limit\n', '')
-source = source.replace('    def _call_gemini(self,', '    @_factory_throttle.limit\n    def _call_gemini(self,')
+source = source.replace('    @_factory_throttle.limit\n', '').replace('    @_factory_limit\n', '')
+source = source.replace('    def _call_gemini(self,', '    @_factory_limit\n    def _call_gemini(self,')
 path.write_text(source)

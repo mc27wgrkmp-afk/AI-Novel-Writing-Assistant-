@@ -75,4 +75,32 @@ class GatewayPatchTest(unittest.TestCase):
         self.assertEqual(calls, [1])
         self.assertEqual(self.gateway.CONFIG['retry_attempts'], 1)
 
+    def test_throttle_reads_loaded_config_and_persists_rejection(self):
+        gateway = self.gateway
+        original_config = dict(gateway.CONFIG)
+        original_throttle = gateway._factory_throttle
+        try:
+            with tempfile.TemporaryDirectory() as directory:
+                state = Path(directory) / 'throttle.json'
+                gateway.CONFIG.update(request_interval_sec=0, failure_cooldown_sec=0,
+                                      throttle_state_file=str(state))
+                gateway._factory_throttle = None
+                calls = []
+                @gateway._factory_limit
+                def rejected():
+                    calls.append(1)
+                    raise RuntimeError('BardErrorInfo [1060]')
+                with self.assertRaisesRegex(RuntimeError, '1060'):
+                    rejected()
+                self.assertEqual(gateway._factory_throttle.path, state)
+                self.assertTrue(json.loads(state.read_text())['verification_required'])
+                gateway._factory_throttle = None  # simulate a restarted gateway
+                with self.assertRaisesRegex(RuntimeError, 'Gemini paused'):
+                    rejected()
+                self.assertEqual(calls, [1])
+        finally:
+            gateway.CONFIG.clear()
+            gateway.CONFIG.update(original_config)
+            gateway._factory_throttle = original_throttle
+
 if __name__ == '__main__': unittest.main()
