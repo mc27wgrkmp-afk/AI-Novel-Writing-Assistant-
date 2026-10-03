@@ -8,7 +8,7 @@ import { GenerationContextAssembler } from "../../runtime/GenerationContextAssem
 import { ChapterRuntimeReadinessService } from "../../runtime/ChapterRuntimeReadinessService";
 import { batchContextCache } from "../../runtime/BatchContextCache";
 import { chapterLifecycleService } from "../../runtime/lifecycle";
-import { assertChapterContentNotEmpty } from "../../runtime/chapterEmptyContentError";
+import { assertChapterModelOutput } from "../../runtime/chapterModelOutputGuard";
 import type { ChapterRuntimeRequestInput } from "../../runtime/chapterRuntimeSchema";
 
 type Assembled = Awaited<ReturnType<GenerationContextAssembler["assemble"]>>;
@@ -132,7 +132,7 @@ export class ChapterRegenerationService {
           try {
             if (!streamCompleted) throw new AppError("正文生成连接中断，原正文已保留。", 409);
             const normalized = await writer.onDone(fullContent);
-            const content = assertChapterContentNotEmpty(normalized?.finalContent ?? fullContent, {
+            const content = assertChapterModelOutput(normalized?.finalContent ?? fullContent, {
               novelId, chapterId, source: "chapter_regeneration",
             });
             await this.deps.save(novelId, chapterId, content, previous.content);

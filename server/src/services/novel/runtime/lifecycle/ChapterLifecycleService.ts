@@ -7,6 +7,7 @@ import {
   type PipelineGenerationState,
 } from "../../chapterLifecycleState";
 import { assertChapterContentNotEmpty } from "../chapterEmptyContentError";
+import { assertChapterModelOutput } from "../chapterModelOutputGuard";
 
 export class ChapterContentPersistenceError extends Error {
   constructor(
@@ -26,7 +27,7 @@ export class ChapterLifecycleService {
     content: string;
     expectedContent: string | null;
   }): Promise<void> {
-    const content = assertChapterContentNotEmpty(input.content, {
+    const content = assertChapterModelOutput(input.content, {
       novelId: input.novelId,
       chapterId: input.chapterId,
       source: "chapter_regeneration_save",

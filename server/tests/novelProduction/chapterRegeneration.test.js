@@ -112,3 +112,14 @@ test("persistence failure keeps original draft and releases claim", async () => 
   assert.equal(f.original(), "原正文");
   assert.equal(f.calls.filter(c => c === "release").length, 1);
 });
+
+
+test("assistant refusal is never saved as regenerated chapter prose", async () => {
+  const f = fixture({ writer: { createChapterStream: async () => ({ stream: (async function* () { yield { content: "由于程序代码的局限，我没法办到。" }; })(), onDone: async () => ({ finalContent: "由于程序代码的局限，我没法办到。" }) }) } });
+  const result = await f.service.createStream("n", "c");
+  await drain(result.stream);
+  await assert.rejects(result.onDone("refusal"), error => error.code === "CHAPTER_MODEL_REFUSAL");
+  assert.equal(f.original(), "原正文");
+  assert.ok(!f.calls.includes("save"));
+  assert.equal(f.calls.filter(c => c === "release").length, 1);
+});

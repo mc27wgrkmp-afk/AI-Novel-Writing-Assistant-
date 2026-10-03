@@ -15,7 +15,7 @@ import {
 } from "../../prompting/prompts/novel/chapterLayeredContext";
 import { chapterWriterPrompt } from "../../prompting/prompts/novel/chapterWriter.prompts";
 import { NovelContinuationService } from "./NovelContinuationService";
-import { assertChapterContentNotEmpty } from "./runtime/chapterEmptyContentError";
+import { assertChapterModelOutput } from "./runtime/chapterModelOutputGuard";
 import { prisma } from "../../db/prisma";
 import type { WritingPlatformSnapshot } from "@ai-novel/shared/types/writingPlatform";
 
@@ -252,10 +252,10 @@ export class ChapterWritingGraph {
         triggerReason: "length_recovery",
       },
     });
-    const appended = completion.output.trim();
-    if (!appended) {
-      return input.content;
-    }
+    if (!completion.output.trim()) return input.content;
+    const appended = assertChapterModelOutput(completion.output, {
+      novelId: input.novelId, chapterId: input.chapter.id, source: "chapter_writer_extension",
+    }).trim();
 
     const merged = `${input.content.trim()}\n\n${appended}`.trim();
     this.deps.logInfo("Chapter draft auto-extended for target length", {
@@ -337,7 +337,9 @@ export class ChapterWritingGraph {
       stream: streamed.stream as AsyncIterable<BaseMessageChunk>,
       onDone: async (fullContent: string) => {
         const completed = await streamed.complete.catch(() => null);
-        const rawContent = completed?.output ?? fullContent;
+        const rawContent = assertChapterModelOutput(completed?.output ?? fullContent, {
+          novelId: input.novelId, chapterId: input.chapter.id, source: "chapter_writer_raw",
+        });
         const normalized = await this.continuityNode(
           input.novelId,
           input.chapter,
@@ -353,7 +355,7 @@ export class ChapterWritingGraph {
           contextPackage,
           options: input.options,
         });
-        const safeContent = assertChapterContentNotEmpty(lengthAdjusted, {
+        const safeContent = assertChapterModelOutput(lengthAdjusted, {
           novelId: input.novelId,
           chapterId: input.chapter.id,
           chapterOrder: input.chapter.order,
