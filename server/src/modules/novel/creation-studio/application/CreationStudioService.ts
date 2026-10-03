@@ -23,6 +23,7 @@ import { supportsWritingPlatformForm, writingPlatformProfileService } from "../.
 
 interface CreationStudioSeed {
   idea: string;
+  feedbackHistory?: string[];
   derivedFromNovelId?: string;
   currentIntentVersionId?: string;
   selectedDirectionId?: string;
@@ -140,11 +141,16 @@ export class CreationStudioService {
     if (task.novelId) {
       throw new AppError("作品已开始生成，不能再替换确认前方向。", 409);
     }
+    const latest = await prisma.novelIntentVersion.findFirst({ where: { workflowTaskId: task.id }, orderBy: { version: "desc" } });
+    const feedbackHistory = [...(seed.feedbackHistory ?? []), ...(input.feedback?.trim() ? [input.feedback.trim()] : [])];
+    if (feedbackHistory.join("\n").length > 24000) throw new AppError("补充内容已超过本轮讨论上限，请整理想法后重新开一个创作任务。", 400);
     return this.runInterpretation(task.id, {
       idea: seed.idea,
+      feedbackHistory,
+      previousInterpretation: latest ? parseInterpretation(latest.structuredIntentJson) : undefined,
       preferredNarrativeForm: input.narrativeForm,
       targetWordCount: input.targetWordCount,
-      feedback: input.feedback,
+      feedback: feedbackHistory.map((text, index) => `第${index + 1}次补充：${text}`).join("\n\n"),
       writingPlatformPreference: input.writingPlatformPreference,
       source: "regenerated",
     });
@@ -249,6 +255,8 @@ export class CreationStudioService {
     preferredNarrativeForm?: NarrativeForm;
     targetWordCount?: number;
     feedback?: string;
+    feedbackHistory?: string[];
+    previousInterpretation?: CreationIntentInterpretation;
     writingPlatformPreference?: WritingPlatformPreference;
     source: "initial" | "regenerated" | "derived";
   }): Promise<CreationStudioTaskProjection> {
@@ -322,6 +330,7 @@ export class CreationStudioService {
         progress: 0.12,
         seedPayload: {
           idea: input.idea,
+          feedbackHistory: input.feedbackHistory ?? [],
           currentIntentVersionId: created.id,
           writingPlatformPreference: input.writingPlatformPreference,
         },

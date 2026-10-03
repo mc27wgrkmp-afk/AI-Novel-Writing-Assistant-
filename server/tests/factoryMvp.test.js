@@ -296,3 +296,19 @@ test("manual workbench renders every factory prompt without a production input",
     assert.match(JSON.stringify(result.messages), /陆沉/);
   }
 });
+
+
+test("creation directions carry earlier feedback into subsequent revisions", async () => {
+  const { CreationStudioService } = require("../dist/modules/novel/creation-studio/application/CreationStudioService");
+  const service = new CreationStudioService();
+  const taskId = randomUUID(); let seed = { idea: "一个调查旧案的女孩" }; const captured = [];
+  service.requireCreationTask = async () => ({ id: taskId, novelId: null, seedPayloadJson: JSON.stringify(seed) });
+  service.runInterpretation = async (_id, input) => { captured.push(input); seed.feedbackHistory = input.feedbackHistory; return { taskId }; };
+  const scale = { narrativeForm: "short_story", targetWordCount: 8000, writingPlatformPreference: "fanqie_free" };
+  await service.regenerate(taskId, { ...scale, feedback: "不要爱情线" });
+  await service.regenerate(taskId, { ...scale, feedback: "结尾揭开真相" });
+  assert.equal(captured[1].idea, seed.idea);
+  assert.deepEqual(captured[1].feedbackHistory, ["不要爱情线", "结尾揭开真相"]);
+  assert.match(captured[1].feedback, /不要爱情线/);
+  assert.match(captured[1].feedback, /结尾揭开真相/);
+});

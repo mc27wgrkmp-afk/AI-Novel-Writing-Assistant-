@@ -32,6 +32,7 @@ export default function CreationStudioPage() {
   const taskId = searchParams.get("taskId")?.trim() ?? "";
   const shortStoryEntry = searchParams.get("form") === "short_story";
   const [idea, setIdea] = useState("");
+  const [feedback, setFeedback] = useState("");
   const [selectedDirectionId, setSelectedDirectionId] = useState("");
   const [narrativeForm, setNarrativeForm] = useState<NarrativeForm>("short_story");
   const [targetWordCount, setTargetWordCount] = useState(8000);
@@ -86,17 +87,18 @@ export default function CreationStudioPage() {
   });
 
   const regenerateMutation = useMutation({
-    mutationFn: () => regenerateCreationDirections(taskId, {
+    mutationFn: (submittedFeedback: string) => regenerateCreationDirections(taskId, {
       narrativeForm,
       targetWordCount: normalizeTarget(narrativeForm, targetWordCount),
       writingPlatformPreference: writingPlatform,
-      feedback: "请按我调整后的作品规模与目标平台重新适配两个方向。",
+      feedback: submittedFeedback.trim() || "请按我调整后的作品规模与目标平台重新适配两个方向。",
     }),
-    onSuccess: async (response) => {
+    onSuccess: async (response, submittedFeedback) => {
+      setFeedback((current) => current === submittedFeedback ? "" : current);
       setConfirmedBaseline(`${narrativeForm}:${normalizeTarget(narrativeForm, targetWordCount)}:${writingPlatform}`);
       setSelectedDirectionId(response.data?.interpretation?.directions[0].id ?? "");
       await queryClient.invalidateQueries({ queryKey: ["creation-studio", taskId] });
-      toast.success("方向已按新的作品规模更新。");
+      toast.success("方向已更新，可以继续补充要求。");
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : "更新方向失败。"),
   });
@@ -256,8 +258,8 @@ export default function CreationStudioPage() {
               <p className="text-sm text-muted-foreground">作品规模或目标平台变了，先让 AI 重新适配方向。</p>
               <Button
                 variant="outline"
-                onClick={() => regenerateMutation.mutate()}
-                disabled={regenerateMutation.isPending}
+                onClick={() => regenerateMutation.mutate(feedback)}
+                disabled={regenerateMutation.isPending || confirmMutation.isPending || Boolean(task?.novelId)}
               >
                 <RefreshCw className={cn("mr-2 h-4 w-4", regenerateMutation.isPending && "animate-spin")} />
                 按新规模更新方向
@@ -276,17 +278,39 @@ export default function CreationStudioPage() {
             ))}
           </div>
 
+          {!task?.novelId ? (
+            <section className="rounded-2xl bg-muted/20 p-5" aria-labelledby="direction-feedback-heading">
+              <h2 id="direction-feedback-heading" className="text-lg font-semibold">继续聊聊，调整方向</h2>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">两个方向都可以改。说说想保留什么、删掉什么，或补充人物、冲突和结局；可以反复调整，满意后再开始创作。</p>
+              <textarea
+                aria-label="补充想法或修改方向"
+                value={feedback}
+                onChange={(event) => setFeedback(event.target.value)}
+                maxLength={4000}
+                placeholder="例如：保留第一个方向的人物，但不要爱情线；让主角主动调查，结尾揭开真相。"
+                className="mt-4 min-h-[120px] w-full resize-y rounded-xl bg-background p-3 text-sm leading-7 outline-none focus:ring-2 focus:ring-primary/30"
+              />
+              <div className="mt-3 flex items-center justify-between gap-3">
+                <span className="text-xs text-muted-foreground">{feedback.length} / 4,000</span>
+                <Button onClick={() => regenerateMutation.mutate(feedback)} disabled={!feedback.trim() || regenerateMutation.isPending || confirmMutation.isPending || task?.status === "running"}>
+                  {regenerateMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                  {regenerateMutation.isPending ? "正在按你的想法调整…" : "按我的想法修改方向"}
+                </Button>
+              </div>
+            </section>
+          ) : null}
+
           <div className="sticky bottom-3 z-10 flex flex-col gap-3 rounded-2xl border bg-background/95 p-4 shadow-lg backdrop-blur sm:flex-row sm:items-center sm:justify-between">
             <div>
               <div className="text-sm font-medium">{selectedDirection ? `将以《${selectedDirection.title}》开始` : "请选择一个方向"}</div>
               <div className="mt-1 text-xs text-muted-foreground">
-                {narrativeForm === "short_story" ? "会直接生成一篇连续完整的短篇作品。" : "会交给长篇自动导演继续完成整书准备。"}
+                {feedback.trim() ? "还有未提交的补充想法，请先修改方向。" : narrativeForm === "short_story" ? "会直接生成一篇连续完整的短篇作品。" : "会交给长篇自动导演继续完成整书准备。"}
               </div>
             </div>
             <Button
               size="lg"
               onClick={() => confirmMutation.mutate()}
-              disabled={!selectedDirection || scaleNeedsRefresh || confirmMutation.isPending}
+              disabled={!selectedDirection || scaleNeedsRefresh || regenerateMutation.isPending || Boolean(feedback.trim()) || task?.status === "running" || confirmMutation.isPending}
             >
               {confirmMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
               确认这个方向并开始

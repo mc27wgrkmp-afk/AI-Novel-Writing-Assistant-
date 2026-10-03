@@ -13,6 +13,7 @@ export interface CreationIntentPromptInput {
   preferredNarrativeForm?: NarrativeForm;
   targetWordCount?: number;
   feedback?: string;
+  previousInterpretation?: CreationIntentInterpretation;
   writingPlatformPreference?: WritingPlatformPreference;
 }
 
@@ -92,7 +93,8 @@ export const creationIntentInterpretPrompt: PromptAsset<
       `用户想法：${input.idea.trim()}`,
       `用户偏好的作品规模：${input.preferredNarrativeForm ?? "未指定，由你推荐"}`,
       `用户调整的目标字数：${input.targetWordCount ?? "未指定，由你推荐"}`,
-      `补充反馈：${input.feedback?.trim() || "无"}`,
+      `上一轮方向（供理解用户修改对象）：${input.previousInterpretation ? JSON.stringify(input.previousInterpretation) : "无"}`,
+      `按时间排序的补充反馈（有冲突时以最新明确要求为准）：${input.feedback?.trim() || "无"}`,
       `用户的平台选择：${input.writingPlatformPreference ?? "ai_recommend"}`,
       "",
       "请返回：简明理解、推荐规模、目标字数、0～1 置信度、推荐理由、推荐平台、平台置信度、平台理由，以及两个完整方向。",
