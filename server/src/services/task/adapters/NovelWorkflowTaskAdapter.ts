@@ -189,6 +189,8 @@ function compactSeedPayload(input: Record<string, unknown> | null): Record<strin
   return compactObject({
     resumeTarget: input.resumeTarget,
     runMode: input.runMode,
+    scriptBatch: input.scriptBatch,
+    scriptBatchScope: input.scriptBatchScope,
     styleProfileId: input.styleProfileId,
     styleTone: input.styleTone,
     autoExecution: autoExecution

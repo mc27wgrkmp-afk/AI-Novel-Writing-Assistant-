@@ -13,6 +13,7 @@ import type {
   DirectorProjectContextInput,
   DirectorRunMode,
   DirectorSessionState,
+  DirectorScriptBatchState,
   DirectorTaskNotice,
 } from "@ai-novel/shared/types/novelDirector";
 import type { DirectorRuntimeSnapshot } from "@ai-novel/shared/types/directorRuntime";
@@ -53,6 +54,8 @@ export interface DirectorCandidateStageState {
 }
 
 export interface DirectorWorkflowSeedPayload extends Record<string, unknown> {
+  scriptBatch?: DirectorScriptBatchState;
+  scriptBatchScope?: { startOrder: number; endOrder: number };
   productionExperience?: "simple" | "professional";
   startupPreparation?: DirectorConfirmRequest["startupPreparation"];
   completionProfile?: DirectorCompletionProfile;

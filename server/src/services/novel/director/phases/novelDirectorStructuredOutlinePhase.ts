@@ -8,6 +8,7 @@ import { buildNovelEditResumeTarget } from "../../workflow/novelWorkflow.shared"
 import { logMemoryUsage } from "../../../../runtime/memoryTelemetry";
 import {
   buildDirectorSessionState,
+  type DirectorWorkflowSeedPayload,
 } from "../runtime/novelDirectorHelpers";
 import {
   buildChapterDetailBundleLabel,
@@ -29,6 +30,8 @@ import {
   type StructuredOutlineRecoveryCursor,
 } from "../recovery/novelDirectorStructuredOutlineRecovery";
 import { runDirectorTrackedStep } from "../projections/directorProgressTracker";
+import { parseSeedPayload } from "../../workflow/novelWorkflow.shared";
+import { prepareScriptBatch, resolveScriptBatchScope, hashScriptBatchArtifacts } from "../commands/scriptBatches";
 import type { DirectorPhaseCallbacks, DirectorPhaseDependencies } from "./novelDirectorPhaseTypes";
 
 function buildChapterOrderRangeLabel(startOrder: number, endOrder: number): string {
@@ -184,9 +187,19 @@ export async function runDirectorStructuredOutlinePhase(input: {
   if (!firstVolume) {
     throw new Error("自动导演未能生成可用卷骨架。");
   }
-  const detailPlan = normalizeDirectorAutoExecutionPlan(
-    request.autoExecutionPlan,
-  );
+  const savedTask = await dependencies.workflowService.getTaskById(taskId);
+  const savedSeed = parseSeedPayload<DirectorWorkflowSeedPayload>(savedTask?.seedPayloadJson) ?? {};
+  // Duplicate background delivery must preserve the human acceptance checkpoint.
+  if (savedSeed.scriptBatch?.status === "waiting_acceptance" || savedSeed.scriptBatch?.status === "all_accepted") return;
+  const scriptBatchScope = resolveScriptBatchScope(request, baseWorkspace, savedSeed.scriptBatchScope);
+  const scriptBatch = prepareScriptBatch(scriptBatchScope, savedSeed.scriptBatch);
+  const detailPlan = normalizeDirectorAutoExecutionPlan({
+    ...request.autoExecutionPlan,
+    mode: "chapter_range",
+    startOrder: scriptBatch.startOrder,
+    endOrder: scriptBatch.endOrder,
+  });
+  const batchRequest: DirectorConfirmRequest = { ...request, autoExecutionPlan: detailPlan };
   const fastStartGuidance = buildFastStartPlanningGuidance(request);
   const sortedVolumes = baseWorkspace.volumes
     .slice()
@@ -217,9 +230,11 @@ export async function runDirectorStructuredOutlinePhase(input: {
     novelId,
     lane: "auto_director",
     title: request.candidate.workingTitle,
-    seedPayload: callbacks.buildDirectorSeedPayload(request, novelId, {
+    seedPayload: callbacks.buildDirectorSeedPayload(batchRequest, novelId, {
       directorSession,
       resumeTarget: runningResumeTarget,
+      scriptBatch,
+      scriptBatchScope,
     }),
   });
 
@@ -576,15 +591,17 @@ export async function runDirectorStructuredOutlinePhase(input: {
   });
   await dependencies.workflowService.recordCheckpoint(taskId, {
     stage: "structured_outline",
-    checkpointType: "workflow_completed",
-    checkpointSummary: `《${request.candidate.workingTitle.trim() || request.title?.trim() || "当前项目"}》的${autoExecutionScopeLabel}大纲与章节剧本已完成，可查看规划并开始创作。`,
-    itemLabel: `${autoExecutionScopeLabel}大纲与章节剧本已完成`,
+    checkpointType: "chapter_script_batch_ready",
+    checkpointSummary: `《${request.candidate.workingTitle.trim() || request.title?.trim() || "当前项目"}》的${autoExecutionScopeLabel}章节剧本已准备，请逐章检查并验收后继续。`,
+    itemLabel: `${autoExecutionScopeLabel}章节剧本待验收`,
     volumeId: selectedChapters[0]?.volumeId ?? firstVolume.id,
     chapterId: selectedChapters[0]?.id ?? null,
-    progress: 1,
-    seedPayload: callbacks.buildDirectorSeedPayload(request, novelId, {
+    progress: Math.min(0.99, (scriptBatch.endOrder - scriptBatchScope.startOrder + 1) / scriptBatch.totalChapterCount),
+    seedPayload: callbacks.buildDirectorSeedPayload(batchRequest, novelId, {
       directorSession: pausedSession,
       resumeTarget: chapterResumeTarget,
+      scriptBatch: { ...scriptBatch, status: "waiting_acceptance", artifactHash: hashScriptBatchArtifacts(persistedChapters, scriptBatch, persistedOutlineWorkspace) },
+      scriptBatchScope,
       autoExecution: { ...autoExecutionState, enabled: false },
       startupPreparation: request.startupPreparation,
     }),
@@ -595,7 +612,7 @@ export async function runDirectorStructuredOutlinePhase(input: {
     taskId,
     novelId,
     stage: "structured_outline",
-    itemKey: "workflow_completed",
+    itemKey: "chapter_script_batch_ready",
     scope: autoExecutionScopeLabel,
     entrypoint: "auto_director",
     volumeCount: persistedOutlineWorkspace.volumes.length,

@@ -410,6 +410,33 @@ export interface DirectorCandidate {
   productionFoundation?: NovelCreateResourceRecommendation;
 }
 
+export const DIRECTOR_SCRIPT_BATCH_SIZE = 3;
+
+export interface DirectorScriptBatchState {
+  scopeStartOrder: number;
+  scopeEndOrder: number;
+  startOrder: number;
+  endOrder: number;
+  totalChapterCount: number;
+  acceptedThroughChapterOrder: number;
+  status: "preparing" | "waiting_acceptance" | "all_accepted";
+  artifactHash?: string;
+}
+
+export interface DirectorScriptBatchAcceptanceRequest {
+  startOrder: number;
+  endOrder: number;
+  artifactHash: string;
+}
+
+export interface DirectorScriptBatchAcceptanceResponse {
+  workflowTaskId: string;
+  acceptedThroughChapterOrder: number;
+  completed: boolean;
+  commandId?: string;
+  scriptBatch: DirectorScriptBatchState;
+}
+
 export interface DirectorStartupPreparation {
   strategy: "fast_start";
   routeWindow: {

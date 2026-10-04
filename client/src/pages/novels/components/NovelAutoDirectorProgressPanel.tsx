@@ -148,6 +148,9 @@ function formatCheckpoint(
   if (checkpoint === "chapter_batch_ready") {
     return `${resolveAutoExecutionScopeLabel(task)}自动执行已暂停`;
   }
+  if (checkpoint === "chapter_script_batch_ready") {
+    return task?.checkpointSummary?.trim() || "本批章节大纲与剧本待验收";
+  }
   if (checkpoint === "step_review_required") {
     return "当前步骤待检查";
   }

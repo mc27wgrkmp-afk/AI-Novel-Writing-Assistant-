@@ -15,6 +15,7 @@ import {
   parseSeedPayload,
 } from "../../workflow/novelWorkflow.shared";
 import { normalizeDirectorMemoryScope } from "./autoDirectorMemorySafety";
+import { assertScriptBatchMayPrepare } from "../commands/scriptBatches";
 import { DirectorRecoveryNotNeededError } from "./novelDirectorErrors";
 import {
   applyDirectorRunModeContract,
@@ -196,6 +197,7 @@ export class NovelDirectorContinueRuntime {
     }
 
     const seedPayload = parseSeedPayload<DirectorWorkflowSeedPayload>(row.seedPayloadJson) ?? {};
+    assertScriptBatchMayPrepare(seedPayload.scriptBatch);
     const directorInput = getDirectorInputFromSeedPayload(seedPayload);
     const novelId = row.novelId ?? seedPayload.novelId ?? null;
     const fallbackRunMode = typeof seedPayload.runMode === "string"
@@ -261,7 +263,8 @@ export class NovelDirectorContinueRuntime {
       || row.checkpointType === "replan_required"
       || row.currentStage === "chapter_execution"
       || row.currentStage === "quality_repair";
-    const assetFirstRecovery: DirectorAssetFirstRecovery = recovery?.type === "auto_execution"
+    const assetFirstRecovery: DirectorAssetFirstRecovery = seedPayload.scriptBatch?.status === "preparing"
+      || recovery?.type === "auto_execution"
       || (!recovery && (isLegacyProseCheckpoint || requestedAutoExecutionContinue))
       ? { type: "phase", phase: "structured_outline" }
       : recovery;
@@ -311,6 +314,8 @@ export class NovelDirectorContinueRuntime {
       seedPayload: this.deps.buildDirectorSeedPayload(effectiveDirectorInput, novelId, {
         directorSession,
         resumeTarget,
+        scriptBatch: seedPayload.scriptBatch,
+        scriptBatchScope: seedPayload.scriptBatchScope,
       }),
     });
     await this.deps.workflowService.markTaskRunning(taskId, {

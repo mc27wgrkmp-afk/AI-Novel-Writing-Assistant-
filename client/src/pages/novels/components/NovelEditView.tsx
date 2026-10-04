@@ -39,15 +39,16 @@ import {
   tabFromDirectorDisplayStage,
 } from "../novelWorkspaceNavigation";
 import { StepHero } from "./workspaceShell";
+import ChapterScriptBatchWorkbench from "./scriptBatch/ChapterScriptBatchWorkbench";
 
 export default function NovelEditView(props: NovelEditViewProps) {
   const isMobileViewport = useIsMobileViewport();
 
-  if (isMobileViewport) {
-    return <MobileNovelEditView {...props} />;
-  }
-
-  return <DesktopNovelEditView {...props} />;
+  return (
+    <ChapterScriptBatchWorkbench novelId={props.id} activeTab={props.activeTab} task={props.taskDrawer?.task}>
+      {isMobileViewport ? <MobileNovelEditView {...props} /> : <DesktopNovelEditView {...props} />}
+    </ChapterScriptBatchWorkbench>
+  );
 }
 
 function DesktopNovelEditView(props: NovelEditViewProps) {

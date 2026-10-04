@@ -258,7 +258,7 @@ export class DirectorCommandLeaseService {
       where: {
         status: "queued",
         runAfter: { lte: now },
-        task: { status: { in: ["queued", "running"] }, pendingManualRecovery: false },
+        task: { status: { in: ["queued", "running"] }, pendingManualRecovery: false, directorCommands: { none: { status: { in: ["leased", "running"] } } } },
       },
       orderBy: [{ runAfter: "asc" }, { createdAt: "asc" }, { id: "asc" }],
     });
@@ -267,7 +267,7 @@ export class DirectorCommandLeaseService {
       where: {
         id: candidate.id,
         status: "queued",
-        task: { status: { in: ["queued", "running"] }, pendingManualRecovery: false },
+        task: { status: { in: ["queued", "running"] }, pendingManualRecovery: false, directorCommands: { none: { status: { in: ["leased", "running"] } } } },
       },
       data: {
         status: "leased",

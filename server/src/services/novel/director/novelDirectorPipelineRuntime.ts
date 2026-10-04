@@ -1,3 +1,4 @@
+import { parseSeedPayload } from "../workflow/novelWorkflow.shared";
 import type { CharacterCastOption, VolumePlanDocument } from "@ai-novel/shared/types/novel";
 import type { DirectorConfirmRequest } from "@ai-novel/shared/types/novelDirector";
 import {
@@ -268,6 +269,9 @@ export class NovelDirectorPipelineRuntime {
         approveCurrentGate: approval.approveCurrentGate,
         approveAutoExecutionScope: approval.approveAutoExecutionScope,
       });
+      const task = await this.deps.workflowService.getTaskById(input.taskId);
+      const seed = parseSeedPayload<import("./runtime/novelDirectorHelpers").DirectorWorkflowSeedPayload>(task?.seedPayloadJson);
+      if (seed?.scriptBatch) return true;
       if (this.isStageReview(input)) {
         await this.pauseForStepReview(input, module, workspace.volumes[0]?.id ?? null);
         return true;

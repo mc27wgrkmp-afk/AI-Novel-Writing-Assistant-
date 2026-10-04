@@ -24,6 +24,14 @@ interface AutoDirectorNovelCreationClaim {
   task: WorkflowRow;
 }
 
+function assertNoPendingScriptBatchMutation(task: NonNullable<WorkflowRow>): void {
+  const seed = parseSeedPayload<DirectorWorkflowSeedPayload>(task.seedPayloadJson);
+  if (task.lane === "auto_director" && (task.checkpointType === "chapter_script_batch_ready"
+    || seed?.scriptBatch?.status === "waiting_acceptance")) {
+    throw new AppError("请先阅读并验收本批章节剧本，再推进导演任务。", 409);
+  }
+}
+
 export class NovelWorkflowApplicationService {
   constructor(private readonly workflow: NovelWorkflowStoreService) {}
 
@@ -41,6 +49,9 @@ export class NovelWorkflowApplicationService {
             existingLane: existing.lane,
             requestedLane: input.lane,
           });
+        }
+        if (input.seedPayload || (input.novelId?.trim() && existing.novelId !== input.novelId.trim())) {
+          assertNoPendingScriptBatchMutation(existing);
         }
         if (input.novelId?.trim() && existing.novelId !== input.novelId.trim()) {
           if (isPreNovelAutoDirectorCandidateTask(existing)) {
@@ -200,6 +211,7 @@ export class NovelWorkflowApplicationService {
     if (!existing) {
       throw new AppError("Workflow task not found.", 404);
     }
+    assertNoPendingScriptBatchMutation(existing);
     if (isTaskCancellationRequested(existing)) {
       throw new AppError("WORKFLOW_TASK_CANCELLED", 409);
     }
@@ -519,6 +531,7 @@ export class NovelWorkflowApplicationService {
     if (!existing) {
       throw new AppError("Workflow task not found.", 404);
     }
+    assertNoPendingScriptBatchMutation(existing);
     if (isTaskCancellationRequested(existing)) {
       throw new AppError("WORKFLOW_TASK_CANCELLED", 409);
     }

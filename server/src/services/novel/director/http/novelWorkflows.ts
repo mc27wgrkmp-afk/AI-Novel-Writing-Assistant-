@@ -4,6 +4,7 @@ import { z } from "zod";
 import { authMiddleware } from "../../../../middleware/auth";
 import { validate } from "../../../../middleware/validate";
 import { DirectorCommandService } from "../commands/DirectorCommandService";
+import { DirectorScriptBatchAcceptanceService } from "../commands/scriptBatches";
 import { DirectorProductionExperienceService } from "../commands/DirectorProductionExperienceService";
 import { NovelWorkflowService } from "../../workflow/NovelWorkflowService";
 import { NovelWorkflowTaskAdapter } from "../../../task/adapters/NovelWorkflowTaskAdapter";
@@ -12,6 +13,7 @@ const router = Router();
 const workflowService = new NovelWorkflowService();
 const workflowAdapter = new NovelWorkflowTaskAdapter();
 const directorCommandService = new DirectorCommandService(workflowService);
+const scriptBatchService = new DirectorScriptBatchAcceptanceService(directorCommandService);
 const productionExperienceService = new DirectorProductionExperienceService(directorCommandService);
 
 const stageSchema = z.enum([
@@ -33,6 +35,7 @@ const checkpointSchema = z.enum([
   "volume_strategy_ready",
   "production_experience_required",
   "chapter_batch_ready",
+  "chapter_script_batch_ready",
   "step_review_required",
   "replan_required",
   "workflow_completed",
@@ -109,6 +112,26 @@ router.get("/novels/:novelId/auto-director", validate({ params: novelParamsSchem
   } catch (error) {
     next(error);
   }
+});
+
+const scriptBatchAcceptanceSchema = z.object({
+  startOrder: z.number().int().min(1),
+  endOrder: z.number().int().min(1),
+  artifactHash: z.string().regex(/^[a-f0-9]{64}$/),
+}).refine((input) => input.endOrder >= input.startOrder, "章节范围无效。");
+
+router.get("/:id/script-batch", validate({ params: continueParamsSchema }), async (req, res, next) => {
+  try {
+    const data = await scriptBatchService.inspect(String(req.params.id));
+    res.json({ success: true, data } satisfies ApiResponse<typeof data>);
+  } catch (error) { next(error); }
+});
+
+router.post("/:id/accept-script-batch", validate({ params: continueParamsSchema, body: scriptBatchAcceptanceSchema }), async (req, res, next) => {
+  try {
+    const data = await scriptBatchService.accept(String(req.params.id), req.body);
+    res.json({ success: true, data } satisfies ApiResponse<typeof data>);
+  } catch (error) { next(error); }
 });
 
 router.post("/:id/continue", validate({ params: continueParamsSchema, body: continueBodySchema }), async (req, res, next) => {

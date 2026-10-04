@@ -1,6 +1,11 @@
 import type { ApiResponse } from "@ai-novel/shared/types/api";
 import type { DirectorCommandAcceptedResponse } from "@ai-novel/shared/types/directorRuntime";
-import type { DirectorContinuationMode } from "@ai-novel/shared/types/novelDirector";
+import type {
+  DirectorContinuationMode,
+  DirectorScriptBatchAcceptanceRequest,
+  DirectorScriptBatchAcceptanceResponse,
+  DirectorScriptBatchState,
+} from "@ai-novel/shared/types/novelDirector";
 import type {
   NovelWorkflowCheckpoint,
   NovelProductionExperience,
@@ -78,6 +83,24 @@ export async function retryNovelWorkflow(directorTaskId: string, payload?: {
       commandType: "retry",
       ...(payload ? { payload } : {}),
     },
+  );
+  return data;
+}
+
+export async function acceptNovelWorkflowScriptBatch(
+  workflowTaskId: string,
+  payload: DirectorScriptBatchAcceptanceRequest,
+) {
+  const { data } = await apiClient.post<ApiResponse<DirectorScriptBatchAcceptanceResponse>>(
+    `/novel-workflows/${workflowTaskId}/accept-script-batch`,
+    payload,
+  );
+  return data;
+}
+
+export async function getNovelWorkflowScriptBatch(workflowTaskId: string) {
+  const { data } = await apiClient.get<ApiResponse<DirectorScriptBatchState | null>>(
+    `/novel-workflows/${workflowTaskId}/script-batch`,
   );
   return data;
 }

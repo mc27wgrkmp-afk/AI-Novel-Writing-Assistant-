@@ -457,6 +457,19 @@ export function buildPrimaryAction(input: {
         emphasis: "primary",
       });
     }
+    if (input.task?.checkpointType === "chapter_script_batch_ready") {
+      return action({
+        type: "open_novel",
+        label: "验收本批大纲与剧本",
+        target: {
+          novelId: input.novelId,
+          taskId,
+          tab: "structured",
+          href: buildNovelHref(input.novelId, { tab: "structured", taskId }),
+        },
+        emphasis: "primary",
+      });
+    }
     if (input.task?.checkpointType === "production_experience_required") {
       return action({
         type: "open_novel",

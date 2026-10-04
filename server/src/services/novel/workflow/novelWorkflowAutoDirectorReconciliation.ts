@@ -159,7 +159,8 @@ export async function syncActiveAutoDirectorAutoExecutionTaskState(input: {
   };
 }): Promise<{ active: boolean; healed: boolean }> {
   const existing = input.row;
-  if (existing.lane !== "auto_director" || existing.pendingManualRecovery || existing.cancelRequestedAt) {
+  if (existing.lane !== "auto_director" || existing.pendingManualRecovery || existing.cancelRequestedAt
+    || existing.checkpointType === "chapter_script_batch_ready") {
     return { active: false, healed: false };
   }
 

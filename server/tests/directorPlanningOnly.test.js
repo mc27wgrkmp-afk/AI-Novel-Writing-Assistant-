@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const prismaPath = require.resolve("../dist/db/prisma.js");
 require.cache[prismaPath] = {
   id: prismaPath, filename: prismaPath, loaded: true,
-  exports: { prisma: { novelWorkflowTask: {}, novel: {}, $transaction: undefined } },
+  exports: { prisma: { novelWorkflowTask: {}, novel: {}, chapter: {}, $transaction: undefined } },
 };
 const {
   normalizeDirectorRunMode,
@@ -207,12 +207,21 @@ function mapWorkspaceChapterToExecution(chapter) {
 
 
 const { runDirectorStructuredOutlinePhase } = require("../dist/services/novel/director/phases/novelDirectorStructuredOutlinePhase.js");
-for (const runMode of ["auto_to_ready", "full_book_autopilot"]) {
-  test(`${runMode} prepares default ten chapter scripts and completes planning without resetting prose`, async () => {
+for (const [runMode, startOrder, endOrder, partialRetry] of [["auto_to_ready", 1, 3], ["full_book_autopilot", 1, 3], ["auto_to_ready", 4, 6], ["auto_to_ready", 4, 6, true]]) {
+  test(`${runMode} prepares only ${startOrder}-${endOrder} scripts${partialRetry ? " after partial failure" : ""} and waits for acceptance without resetting prose`, async () => {
     let workspace = {
       novelId: "book", beatSheets: [{ ...createBeatSheet(), beats: [{ ...createBeatSheet().beats[0], chapterSpanHint: "1-10章" }] }],
       volumes: [{ id: "volume-1", sortOrder: 1, title: "首卷", chapters: Array.from({ length: 10 }, (_, index) => ({ ...createChapter(`chapter-${index + 1}`, index + 1, `事件${index + 1}`), beatKey: "opening" })) }],
     };
+    const batchSeed = startOrder === 4 ? {
+      scriptBatch: { scopeStartOrder: 1, scopeEndOrder: 10, startOrder: 4, endOrder: 6, totalChapterCount: 10, acceptedThroughChapterOrder: 3, status: "preparing" },
+      scriptBatchScope: { startOrder: 1, endOrder: 10 },
+    } : {};
+    for (const chapter of workspace.volumes[0].chapters) {
+      if (chapter.chapterOrder < startOrder) applyCompleteChapterDetail(chapter);
+    }
+    if (partialRetry) applyCompleteChapterDetail(workspace.volumes[0].chapters[startOrder - 1]);
+    const acceptedScripts = clone(workspace.volumes[0].chapters.filter((chapter) => chapter.chapterOrder < startOrder));
     const generated = [];
     let checkpoint;
     const volumeService = {
@@ -234,7 +243,7 @@ for (const runMode of ["auto_to_ready", "full_book_autopilot"]) {
       taskId: "task", novelId: "book", request: { runMode, candidate: { workingTitle: "故事" } }, baseWorkspace: workspace,
       dependencies: {
         volumeService,
-        workflowService: { bootstrapTask: async () => {}, markTaskRunning: async () => {}, recordCheckpoint: async (_id, value) => { checkpoint = value; } },
+        workflowService: { getTaskById: async () => ({ seedPayloadJson: JSON.stringify(batchSeed) }), bootstrapTask: async () => {}, markTaskRunning: async () => {}, recordCheckpoint: async (_id, value) => { checkpoint = value; } },
         novelContextService: {
           listChapters: async () => workspace.volumes[0].chapters.map((chapter) => ({ ...mapWorkspaceChapterToExecution(chapter), content: "作者原有正文" })),
           updateNovel: async (_novelId, patch) => assert.notEqual(patch.projectStatus, "completed"),
@@ -242,14 +251,20 @@ for (const runMode of ["auto_to_ready", "full_book_autopilot"]) {
       },
       callbacks: { markDirectorTaskRunning: async () => {}, buildDirectorSeedPayload: (_request, novelId, extra) => ({ novelId, ...extra }) },
     });
-    assert.equal(generated.length, 10);
+    assert.equal(generated.length, partialRetry ? 2 : 3);
+    assert.deepEqual(generated, partialRetry ? [`chapter-${startOrder + 1}`, `chapter-${endOrder}`] : [`chapter-${startOrder}`, `chapter-${startOrder + 1}`, `chapter-${endOrder}`]);
+    assert.deepEqual(workspace.volumes[0].chapters.filter((chapter) => chapter.chapterOrder < startOrder), acceptedScripts);
+    assert.equal(workspace.volumes[0].chapters[endOrder].taskSheet, null);
     assert.equal(checkpoint.stage, "structured_outline");
-    assert.equal(checkpoint.checkpointType, "workflow_completed");
-    assert.equal(checkpoint.progress, 1);
+    assert.equal(checkpoint.checkpointType, "chapter_script_batch_ready");
+    assert.ok(checkpoint.progress < 1);
+    assert.equal(checkpoint.seedPayload.scriptBatch.status, "waiting_acceptance");
+    assert.equal(checkpoint.seedPayload.scriptBatch.startOrder, startOrder);
+    assert.equal(checkpoint.seedPayload.scriptBatch.endOrder, endOrder);
     assert.equal(checkpoint.seedPayload.directorSession.isBackgroundRunning, false);
     assert.equal(checkpoint.seedPayload.directorSession.phase, "structured_outline");
     assert.equal(checkpoint.seedPayload.autoExecution.enabled, false);
-    assert.match(checkpoint.itemLabel, /章节剧本已完成/);
+    assert.match(checkpoint.itemLabel, /章节剧本待验收/);
   });
 }
 
@@ -272,4 +287,14 @@ test("explicit legacy execution approval cannot dispatch prose after script comp
     approveCurrentGate: true, approveAutoExecutionScope: true,
   });
   assert.equal(steps.length, 1);
+});
+
+test("duplicate background preparation preserves an existing acceptance checkpoint", async () => {
+  const state = { scopeStartOrder: 1, scopeEndOrder: 10, startOrder: 1, endOrder: 3, totalChapterCount: 10, acceptedThroughChapterOrder: 0, status: "waiting_acceptance" };
+  await runDirectorStructuredOutlinePhase({
+    taskId: "task", novelId: "book", request: { candidate: { workingTitle: "故事" } },
+    baseWorkspace: { volumes: [{ id: "volume-1", chapters: [] }], beatSheets: [] },
+    dependencies: { workflowService: { getTaskById: async () => ({ seedPayloadJson: JSON.stringify({ scriptBatch: state }) }), bootstrapTask: () => assert.fail("must preserve pending review") } },
+    callbacks: { markDirectorTaskRunning: () => assert.fail("must not resume preparation") },
+  });
 });

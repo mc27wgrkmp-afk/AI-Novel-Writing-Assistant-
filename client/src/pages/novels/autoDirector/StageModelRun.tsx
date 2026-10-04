@@ -40,7 +40,7 @@ export default function StageModelRun({
         <div>
           <div className="text-2xl font-semibold tracking-normal text-foreground">确认模型与剧本规划</div>
           <div className={`mt-2 max-w-2xl text-sm leading-6 text-muted-foreground ${AUTO_DIRECTOR_MOBILE_CLASSES.wrapText}`}>
-            AI 会先给出两套故事方向，再准备大纲、角色和章节剧本，供你写作。
+            AI 会先给出两套故事方向，再准备大纲、角色和前 3 章剧本。每批剧本由你验收后，才继续准备下一批。
           </div>
         </div>
         <div className="rounded-full bg-muted/55 px-3 py-1 text-xs text-muted-foreground">
@@ -64,17 +64,17 @@ export default function StageModelRun({
             </div>
             <div className="bg-background p-5">
               <BookOpen className="h-5 w-5 text-primary" />
-              <div className="mt-3 text-sm font-semibold text-foreground">2. 完成大纲和章节剧本</div>
-              <div className="mt-1 text-xs leading-5 text-muted-foreground">AI 规划人物目标、冲突、行动、结果和卷章安排。</div>
+              <div className="mt-3 text-sm font-semibold text-foreground">2. 准备大纲与首批剧本</div>
+              <div className="mt-1 text-xs leading-5 text-muted-foreground">AI 完成大纲和人物，每批准备 3 章的目标、冲突、行动和结果。</div>
             </div>
             <div className="bg-background p-5">
               <Settings2 className="h-5 w-5 text-primary" />
-              <div className="mt-3 text-sm font-semibold text-foreground">3. 根据剧本写正文</div>
-              <div className="mt-1 text-xs leading-5 text-muted-foreground">打开写作工作台，查看剧本并由你完成正文。</div>
+              <div className="mt-3 text-sm font-semibold text-foreground">3. 验收剧本并写正文</div>
+              <div className="mt-1 text-xs leading-5 text-muted-foreground">阅读并修改本批剧本，验收通过后准备下一批；正文由你写作。</div>
             </div>
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-primary/10 bg-primary/[0.05] px-5 py-3 text-xs">
-            <span className="font-medium text-foreground">AI 任务在大纲和章节剧本完成后结束</span>
+            <span className="font-medium text-foreground">第 1–3 章通过验收后，再准备第 4–6 章</span>
             <span className="text-muted-foreground">正文由你写作</span>
           </div>
         </section>

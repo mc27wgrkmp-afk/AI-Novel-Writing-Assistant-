@@ -39,6 +39,7 @@ import {
 } from "./DirectorCommandServiceHelpers";
 import { taskDispatcher } from "../../../../workers/TaskDispatcher";
 import { DirectorConflictRecoveryService } from "../recovery/conflicts/DirectorConflictRecoveryService";
+import { assertScriptBatchMayPrepare } from "./scriptBatches";
 import { DirectorCommandLeaseService } from "./leases/DirectorCommandLeaseService";
 
 const ACTIVE_COMMAND_STATUSES: DirectorRunCommandStatus[] = ["queued", "leased", "running"];
@@ -300,6 +301,15 @@ export class DirectorCommandService {
       taskId,
       commandType: "continue",
       payload: input,
+    });
+  }
+
+  async enqueueAcceptedScriptBatchCommand(taskId: string, acceptedScriptBatch: { acceptedThroughChapterOrder: number; artifactHash: string }): Promise<DirectorCommandAcceptedResponse> {
+    return this.enqueueExecutionCommand({
+      taskId,
+      commandType: "continue",
+      payload: { continuationMode: "resume", forceResume: true, acceptedScriptBatch },
+      acceptedScriptBatch,
     });
   }
 
@@ -665,6 +675,7 @@ export class DirectorCommandService {
     payload: DirectorCommandPayload;
     allowTerminalReuse?: boolean;
     preserveLastError?: boolean;
+    acceptedScriptBatch?: { acceptedThroughChapterOrder: number; artifactHash: string };
   }): Promise<DirectorCommandAcceptedResponse> {
     let row = await this.workflowService.getTaskById(input.taskId);
     if (!row) {
@@ -673,6 +684,11 @@ export class DirectorCommandService {
     if (row.lane !== "auto_director") {
       throw new AppError("Only auto director workflow tasks can be queued as director commands.", 400);
     }
+    const guardedCommands: DirectorRunCommandType[] = ["continue", "resume_from_checkpoint", "retry", "approve_gate", "accept_manual_changes_and_continue", "takeover", "calibrate_step"];
+    if (guardedCommands.includes(input.commandType)) {
+      const seed = parseSeedPayload<import("../runtime/novelDirectorHelpers").DirectorWorkflowSeedPayload>(row.seedPayloadJson);
+      assertScriptBatchMayPrepare(seed?.scriptBatch);
+    }
     const recoveredStaleLeaseCount = await this.recoverStaleLeases(new Date(), { taskId: input.taskId });
     if (recoveredStaleLeaseCount > 0) {
       row = await this.workflowService.getTaskById(input.taskId);
@@ -680,10 +696,13 @@ export class DirectorCommandService {
         throw new AppError("Task not found.", 404);
       }
     }
+    const normalizedPayload = Object.fromEntries(Object.entries(input.payload).filter(([, value]) => value !== undefined));
+    const payloadJson = stableJson(normalizedPayload);
     const reusableCommand = await prisma.directorRunCommand.findFirst({
       where: {
         taskId: input.taskId,
-        commandType: input.commandType === "cancel" ? "cancel" : { in: EXECUTION_COMMAND_TYPES },
+        commandType: input.acceptedScriptBatch ? "continue" : input.commandType === "cancel" ? "cancel" : { in: EXECUTION_COMMAND_TYPES },
+        ...(input.acceptedScriptBatch ? { payloadJson } : {}),
         status: { in: ACTIVE_COMMAND_STATUSES },
       },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
@@ -692,11 +711,9 @@ export class DirectorCommandService {
       return toAcceptedResponse(reusableCommand, null);
     }
 
-    const normalizedPayload = Object.fromEntries(
-      Object.entries(input.payload).filter(([, value]) => value !== undefined),
-    );
-    const idempotencyKey = `${input.commandType}:${row.updatedAt.getTime()}:${hashPayload(normalizedPayload)}`;
-    const payloadJson = stableJson(normalizedPayload);
+    const idempotencyKey = input.acceptedScriptBatch
+      ? `continue:script-batch:${input.acceptedScriptBatch.acceptedThroughChapterOrder}:${input.acceptedScriptBatch.artifactHash}`
+      : `${input.commandType}:${row.updatedAt.getTime()}:${hashPayload(normalizedPayload)}`;
     const createCommand = () => prisma.directorRunCommand.create({
       data: {
         taskId: input.taskId,

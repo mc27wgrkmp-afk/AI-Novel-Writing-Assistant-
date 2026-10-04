@@ -717,6 +717,16 @@ export const WORKFLOW_CHECKPOINT_CATALOG: readonly WorkflowCheckpointCatalogEntr
     defaultProgress: 0.62,
   },
   {
+    checkpoint: "chapter_script_batch_ready",
+    displayStage: "structured_outline",
+    workflowStage: "structured_outline",
+    tab: "structured",
+    label: "本批章节大纲与剧本待验收",
+    waitingApprovalLabel: "查看本批大纲与剧本，验收后准备下一批",
+    approvalPoint: null,
+    defaultProgress: 0.9,
+  },
+  {
     checkpoint: "chapter_batch_ready",
     displayStage: "structured_outline",
     workflowStage: "chapter_execution",

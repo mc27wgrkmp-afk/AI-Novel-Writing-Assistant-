@@ -22,6 +22,7 @@ export type NovelWorkflowCheckpoint =
   | "volume_strategy_ready"
   | "production_experience_required"
   | "chapter_batch_ready"
+  | "chapter_script_batch_ready"
   | "step_review_required"
   | "replan_required"
   | "workflow_completed";

@@ -76,5 +76,5 @@ export function summarizeModelRunStage(input: {
   runModeOptions: DirectorRunModeOption[];
   postGenerationStyleReviewEnabled: boolean;
 }): string {
-  return "AI 完成大纲与章节剧本 · 作者写正文";
+  return "每批 3 章剧本 · 验收后继续 · 作者写正文";
 }

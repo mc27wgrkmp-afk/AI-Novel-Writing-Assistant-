@@ -17,6 +17,7 @@ import type {
 import type { DirectorRuntimePolicyUpdateRequest } from "@ai-novel/shared/types/directorRuntime";
 
 export interface DirectorCommandPayload {
+  acceptedScriptBatch?: { acceptedThroughChapterOrder: number; artifactHash: string };
   candidatesRequest?: DirectorCandidatesRequest;
   refinementRequest?: DirectorRefinementRequest;
   candidatePatchRequest?: DirectorCandidatePatchRequest;

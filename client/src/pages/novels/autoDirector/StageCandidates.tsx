@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import type { useAutoDirectorCreateController } from "./useAutoDirectorCreateController";
 import NovelProductionExperienceHandoff from "../components/NovelProductionExperienceHandoff";
 import OnboardingTip from "@/components/onboarding/OnboardingTip";
+import ChapterScriptBatchReview from "./ChapterScriptBatchReview";
 
 type AutoDirectorCreateController = ReturnType<typeof useAutoDirectorCreateController>;
 
@@ -16,6 +17,10 @@ export default function StageCandidates({
   controller,
   onRegenerateSettings,
 }: StageCandidatesProps) {
+  if (controller.directorTask?.checkpointType === "chapter_script_batch_ready" && controller.directorTask.resumeTarget?.novelId) {
+    return <ChapterScriptBatchReview task={controller.directorTask} novelId={controller.directorTask.resumeTarget.novelId} />;
+  }
+
   if (
     (controller.directorTask?.checkpointType === "production_experience_required"
       || controller.directorTask?.checkpointType === "workflow_completed")
@@ -110,4 +115,3 @@ export default function StageCandidates({
     </section>
   );
 }
-
