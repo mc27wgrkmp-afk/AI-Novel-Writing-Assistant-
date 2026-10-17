@@ -3,6 +3,12 @@
 
 Open-source AI novel writing assistant and long-form production studio.
 
+> [!NOTE]
+> **说明与致谢**：  
+> 本项目基于开源项目 [AI-Novel-Writing-Assistant](https://github.com/ExplosiveCoderflome/AI-Novel-Writing-Assistant) 进行二次开发与修改。  
+> 感谢原作者的优秀工作与开源贡献！本项目主要在其基础上加入了统一创作书房整合、个人工作流适配及相关模型兼容性优化。  
+> 本项目遵循原有的 AGPL-3.0 开源协议。
+
 > 中文名仍为 **AI 小说创作工作台**；`AI Novel Writing Assistant` 仓库地址和既有下载入口保持不变。
 
 当前开发主线：
