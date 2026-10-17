@@ -172,9 +172,9 @@ export function resolveStructuredOutputProfile(input: {
   if (usesOfficialEndpoint("gemini", GEMINI_HOST_PATTERN)) {
     return buildProfile({
       family: "gemini",
-      nativeJsonSchema: true,
+      nativeJsonSchema: false,
       nativeJsonObject: true,
-      preferredStructuredStrategy: "json_schema",
+      preferredStructuredStrategy: "json_object",
     });
   }
   if (usesOfficialEndpoint("glm", GLM_HOST_PATTERN)) {
@@ -329,6 +329,22 @@ function sanitizeSchemaName(label: string): string {
   return normalized.slice(0, 48) || "structured_output";
 }
 
+function cleanJsonSchemaForGemini(schema: unknown): unknown {
+  if (!schema || typeof schema !== "object") return schema;
+  if (Array.isArray(schema)) return schema.map(cleanJsonSchemaForGemini);
+  const copy = { ...(schema as Record<string, unknown>) };
+  delete copy["$schema"];
+  delete copy["default"];
+  delete copy["minLength"];
+  delete copy["maxLength"];
+  delete copy["minItems"];
+  delete copy["maxItems"];
+  for (const k of Object.keys(copy)) {
+    copy[k] = cleanJsonSchemaForGemini(copy[k]);
+  }
+  return copy;
+}
+
 export function buildStructuredResponseFormat<T>(input: {
   strategy: StructuredOutputStrategy;
   schema: ZodType<T>;
@@ -343,7 +359,7 @@ export function buildStructuredResponseFormat<T>(input: {
       json_schema: {
         name: sanitizeSchemaName(input.label),
         strict: true,
-        schema: toJSONSchema(input.schema),
+        schema: cleanJsonSchemaForGemini(toJSONSchema(input.schema)),
       },
     };
   }
@@ -369,6 +385,9 @@ export function classifyStructuredOutputFailure(input: {
     || haystack.includes("json_schema")
     || haystack.includes("json_object")
     || haystack.includes("unsupported response format")
+    || haystack.includes("request contains an invalid argument")
+    || haystack.includes("invalid argument")
+    || (lowerMessage.includes("400") && lowerMessage.includes("no body"))
   ) {
     return "unsupported_native_json";
   }
