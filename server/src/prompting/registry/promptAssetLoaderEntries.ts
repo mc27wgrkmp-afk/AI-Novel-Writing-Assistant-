@@ -9,6 +9,8 @@ export interface PromptAssetLoaderEntry {
 }
 
 export const promptAssetLoaderEntries: PromptAssetLoaderEntry[] = [
+  { key: "unified.research.evidence@v1", load: () => require("../prompts/unified/research.prompts").unifiedResearchPrompt as UnknownPromptAsset },
+  { key: "unified.chapter.eight_dimension_review@v1", load: () => require("../prompts/unified/review.prompts").unifiedReviewPrompt as UnknownPromptAsset },
   { key: "director.conflict.recovery@v1", load: () => require("../prompts/director/conflictRecovery.prompts").directorConflictRecoveryPrompt as UnknownPromptAsset },
   { key: "factory.chapter.plan@v1", load: () => require("../prompts/factory/factory.prompts").factoryPlanPrompt as UnknownPromptAsset },
   { key: "factory.chapter.write@v1", load: () => require("../prompts/factory/factory.prompts").factoryWritePrompt as UnknownPromptAsset },

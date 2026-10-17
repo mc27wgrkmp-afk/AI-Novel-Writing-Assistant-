@@ -82,3 +82,5 @@ Wiki 不应写：
 - `README.md`：对外入口和最新公开摘要。
 
 - [章节生产与 Gemini 网页版交接](./workflows/factory-gemini-web-writing.md)：正文回填、状态提交与写作包导出边界。
+
+- [本地三平台整合边界](architecture/unified-local-writing-platform.md)

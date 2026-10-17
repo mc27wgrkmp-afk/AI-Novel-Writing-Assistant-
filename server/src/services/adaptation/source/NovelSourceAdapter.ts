@@ -66,7 +66,7 @@ export class NovelSourceAdapter implements SourceContentPort {
         },
       }),
       prisma.novelFactEntry.findMany({
-        where: { novelId },
+        where: { novelId, category: { not: "superseded" } },
         orderBy: { chapterOrder: "asc" },
         select: { text: true, category: true },
       }),

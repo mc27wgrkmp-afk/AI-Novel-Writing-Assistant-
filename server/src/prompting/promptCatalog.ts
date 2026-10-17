@@ -1,4 +1,6 @@
 const PROMPT_CATALOG_SHORT_DESCRIPTIONS: Record<string, string> = {
+  "unified.research.evidence": "开篇、跨书模式与场景卡研究",
+  "unified.chapter.eight_dimension_review": "章节八维审读与候选事实",
   "factory.chapter.plan": "单章小剧本",
   "factory.chapter.write": "单章正文生成",
   "factory.chapter.review": "单章审核与状态提取",

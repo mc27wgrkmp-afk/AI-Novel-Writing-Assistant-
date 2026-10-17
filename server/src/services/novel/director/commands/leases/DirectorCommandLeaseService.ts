@@ -44,10 +44,11 @@ function parsePipelineWorkflowTaskId(payload: string | null): string | null {
 export class DirectorCommandLeaseService {
   constructor(private readonly workflowService: NovelWorkflowService) {}
 
-  async recoverStaleLeases(now = new Date(), options: { taskId?: string } = {}): Promise<number> {
+  async recoverStaleLeases(now = new Date(), options: { taskId?: string; taskCreatedAfter?: Date } = {}): Promise<number> {
     const staleCommands = await prisma.directorRunCommand.findMany({
       where: {
         ...(options.taskId ? { taskId: options.taskId } : {}),
+        ...(options.taskCreatedAfter ? { task: { createdAt: { gte: options.taskCreatedAfter } } } : {}),
         status: { in: ["leased", "running"] },
         leaseExpiresAt: { lt: now },
       },
@@ -251,14 +252,14 @@ export class DirectorCommandLeaseService {
     }
   }
 
-  async leaseNextCommand(input: { workerId: string; leaseMs: number }) {
+  async leaseNextCommand(input: { workerId: string; leaseMs: number; taskCreatedAfter?: Date }) {
     const now = new Date();
     const leaseExpiresAt = new Date(now.getTime() + input.leaseMs);
     const candidate = await prisma.directorRunCommand.findFirst({
       where: {
         status: "queued",
         runAfter: { lte: now },
-        task: { status: { in: ["queued", "running"] }, pendingManualRecovery: false, directorCommands: { none: { status: { in: ["leased", "running"] } } } },
+        task: { ...(input.taskCreatedAfter ? { createdAt: { gte: input.taskCreatedAfter } } : {}), status: { in: ["queued", "running"] }, pendingManualRecovery: false, directorCommands: { none: { status: { in: ["leased", "running"] } } } },
       },
       orderBy: [{ runAfter: "asc" }, { createdAt: "asc" }, { id: "asc" }],
     });
@@ -267,7 +268,7 @@ export class DirectorCommandLeaseService {
       where: {
         id: candidate.id,
         status: "queued",
-        task: { status: { in: ["queued", "running"] }, pendingManualRecovery: false, directorCommands: { none: { status: { in: ["leased", "running"] } } } },
+        task: { ...(input.taskCreatedAfter ? { createdAt: { gte: input.taskCreatedAfter } } : {}), status: { in: ["queued", "running"] }, pendingManualRecovery: false, directorCommands: { none: { status: { in: ["leased", "running"] } } } },
       },
       data: {
         status: "leased",

@@ -620,11 +620,13 @@ export class DirectorCommandService {
 
   async recoverStaleLeases(now = new Date(), options: {
     taskId?: string;
+    taskCreatedAfter?: Date;
   } = {}): Promise<number> {
     return new DirectorCommandLeaseService(this.workflowService).recoverStaleLeases(now, options);
   }
 
   async leaseNextCommand(input: {
+    taskCreatedAfter?: Date;
     workerId: string;
     leaseMs: number;
   }) {

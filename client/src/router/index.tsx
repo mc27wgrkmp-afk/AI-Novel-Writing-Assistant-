@@ -6,6 +6,7 @@ import { featureFlags } from "@/config/featureFlags";
 
 const FactoryPage = lazy(() => import("@/pages/factory/FactoryPage"));
 const Home = lazy(() => import("@/pages/Home"));
+const UnifiedPlatformPage = lazy(() => import("@/pages/unified/UnifiedPlatformPage"));
 const HelpPage = lazy(() => import("@/pages/help/HelpPage"));
 const NovelList = lazy(() => import("@/pages/novels/NovelList"));
 const NovelCreate = lazy(() => import("@/pages/novels/NovelCreate"));
@@ -51,6 +52,7 @@ const routes: RouteObject[] = [
     element: <AppLayout />,
     children: [
       { index: true, element: <Home /> },
+      { path: "unified", element: <UnifiedPlatformPage /> },
       { path: "help", element: <HelpPage /> },
       { path: "factory", element: <FactoryPage /> },
       { path: "novels", element: <NovelList /> },

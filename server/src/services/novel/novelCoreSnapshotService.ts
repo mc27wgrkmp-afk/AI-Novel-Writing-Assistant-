@@ -135,6 +135,7 @@ export class NovelCoreSnapshotService {
     return prisma.novelSnapshot.findMany({
       where: {
         novelId,
+        NOT: { triggerType: { startsWith: "unified_" } },
         OR: [
           { label: null },
           { NOT: { label: { startsWith: "chapter-creative-revision:v1:" } } },
@@ -160,6 +161,9 @@ export class NovelCoreSnapshotService {
       throw new Error("Snapshot not found.");
     }
 
+    if (snapshot.triggerType.startsWith("unified_")) {
+      throw new Error("请在创作书房中比较或另存章节版本，不能作为整书快照恢复。");
+    }
     const data = JSON.parse(snapshot.snapshotData) as {
       outline?: string | null;
       structuredOutline?: string | null;

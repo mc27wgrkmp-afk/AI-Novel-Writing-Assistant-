@@ -29,6 +29,8 @@ import llmLiveRouter from "./platform/llm/live/http/llmLiveRoutes";
 import chatGPTPlanBridgeRouter from "./platform/llm/chatgptPlan/chatgptPlanBridgeRoutes";
 import novelRouter from "./modules/novel/http/novel";
 import creationStudioRouter from "./modules/novel/creation-studio/http/creationStudioRoutes";
+import { startInteractiveDirectorRuntime } from "./modules/unification/application/InteractiveDirectorRuntime";
+import unificationRouter from "./modules/unification/http/routes";
 import factoryRouter from "./modules/novel/factory/http/factoryRoutes";
 import { shortStoryProductionService } from "./modules/novel/short-story/application/ShortStoryProductionService";
 import dramaRouter from "./modules/drama/http/dramaRoutes";
@@ -129,6 +131,7 @@ export function createApp() {
   app.use(express.json({ limit: jsonBodyLimit }));
 
   app.use("/api/health", healthRouter);
+  app.use("/api/unification", unificationRouter);
   app.use("/api/agent-catalog", agentCatalogRouter);
   app.use("/api/agent-runs", agentRunsRouter);
   app.use("/api/book-analysis", bookAnalysisRouter);
@@ -344,7 +347,10 @@ export async function startServer(options?: ServerStartOptions): Promise<Started
     const listeningServer = app.listen(port, host, () => resolve(listeningServer));
     listeningServer.once("error", reject);
   });
-  const backgroundServices = initializeBackgroundServices();
+  if (process.env.AI_NOVEL_BACKGROUND_SERVICES === "false") await loadProviderApiKeys();
+  const backgroundServices = process.env.AI_NOVEL_BACKGROUND_SERVICES === "false"
+    ? await startInteractiveDirectorRuntime()
+    : initializeBackgroundServices();
 
   logServerReady(host, port);
 

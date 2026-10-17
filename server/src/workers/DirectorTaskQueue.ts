@@ -50,6 +50,7 @@ const PER_NOVEL_RESOURCE_LIMITS: Record<string, number> = {
 };
 
 export interface DirectorTaskQueueOptions {
+  taskCreatedAfter?: Date;
   workerId?: string;
   leaseMs?: number;
   staleScanMs?: number;
@@ -71,6 +72,7 @@ export class DirectorTaskQueue {
   private readonly gates = new Map<string, ResourceGate>();
   private readonly commandService: DirectorCommandService;
   private lastStaleScan = 0;
+  private readonly taskCreatedAfter?: Date;
 
   constructor(
     options: DirectorTaskQueueOptions = {},
@@ -84,6 +86,7 @@ export class DirectorTaskQueue {
     this.executionSlots = resolveNumberEnv("DIRECTOR_WORKER_EXECUTION_SLOTS", options.executionSlots ?? resolveDefaultSlots());
     this.pollMs = resolveNumberEnv("DIRECTOR_WORKER_POLL_MS", options.pollMs ?? 5_000);
     this.commandService = commandService;
+    this.taskCreatedAfter = options.taskCreatedAfter;
   }
 
   async leaseNext(slotId: string): Promise<LeasedTask | null> {
@@ -92,6 +95,7 @@ export class DirectorTaskQueue {
     const command = await this.commandService.leaseNextCommand({
       workerId: leaseOwner,
       leaseMs: this.leaseMs,
+      ...(this.taskCreatedAfter ? { taskCreatedAfter: this.taskCreatedAfter } : {}),
     });
     return command ? { command } : null;
   }
@@ -153,7 +157,7 @@ export class DirectorTaskQueue {
       return;
     }
     this.lastStaleScan = now;
-    const recovered = await this.commandService.recoverStaleLeases(new Date());
+    const recovered = await this.commandService.recoverStaleLeases(new Date(), this.taskCreatedAfter ? { taskCreatedAfter: this.taskCreatedAfter } : {});
     if (recovered > 0) {
       taskDispatcher.notify();
     }

@@ -52,6 +52,7 @@ const navGroups: NavGroup[] = [
   {
     title: "创作",
     items: [
+      { to: "/unified", label: "创作书房", icon: BookOpenText },
       { to: "/", label: "首页", icon: House },
       { to: "/help", label: "创作向导", icon: CircleHelp },
       { to: "/market-radar", label: "热门题材雷达", icon: Radar },
