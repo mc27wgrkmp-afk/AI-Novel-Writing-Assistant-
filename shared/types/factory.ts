@@ -18,6 +18,8 @@ export interface FactorySetup {
   targetWords: number;
   planner: FactoryModel;
   writer: FactoryModel;
+  /** Missing on older snapshots means local API generation. */
+  writerMode?: "api" | "gemini_web";
 }
 export interface FactoryScript {
   title: string;

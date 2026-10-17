@@ -301,6 +301,44 @@ export function preparePromptExecution<I, O, R = O>(input: {
   };
 }
 
+export async function prepareResolvedPromptExecution<I, O, R = O>(input: {
+  asset: PromptAsset<I, O, R>;
+  promptInput: I;
+  contextBlocks?: Parameters<typeof selectContextBlocks>[0];
+  options?: PromptExecutionOptions;
+}): Promise<{
+  messages: BaseMessage[];
+  context: PromptRenderContext;
+  invocation: PromptInvocationMeta;
+}> {
+  const overlays = await resolvePromptOverlaysForAsset({
+    asset: input.asset as PromptAsset<unknown, unknown, unknown>,
+    contextBlocks: input.contextBlocks,
+    options: input.options,
+  });
+  const prepared = preparePromptExecution({
+    ...input,
+    contextBlocks: overlays.blocks,
+    resolvedSlots: overlays.resolvedSlots,
+  });
+  const resolvedMessages = await resolveAdvancedPromptMessages({
+    asset: input.asset,
+    promptInput: input.promptInput,
+    context: prepared.context,
+    officialMessages: prepared.messages,
+    novelId: input.options?.novelId,
+  });
+  const messages = input.asset.mode === "structured" && resolvedMessages !== prepared.messages
+    ? appendStructuredOutputHintMessages({
+      asset: input.asset,
+      promptInput: input.promptInput,
+      context: prepared.context,
+      messages: resolvedMessages,
+    })
+    : resolvedMessages;
+  return { ...prepared, messages };
+}
+
 function logPromptCompletion(input: {
   meta: PromptInvocationMeta;
   provider?: LLMProvider;

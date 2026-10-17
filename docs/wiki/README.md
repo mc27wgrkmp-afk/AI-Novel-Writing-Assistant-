@@ -26,6 +26,7 @@ Wiki 不记录单次提交改了什么，也不替代 release notes。它只记�
 - [简易创作模式](./product/simple-creation-mode.md)
 - [章节生产链路](./workflows/chapter-production-chain.md)
 - [按已有创作资料重新生成章节正文](./workflows/chapter-prose-regeneration.md)
+- [章节创作链路、提示词与版本恢复](./workflows/chapter-creative-trace-and-revisions.md)
 - [读者体验合同](./workflows/reader-experience-contract.md)
 - [Payoff Ledger 来源与同步合同](./workflows/payoff-ledger-contract.md)
 - [角色资源账本工作流](./workflows/character-resource-ledger.md)
@@ -79,3 +80,5 @@ Wiki 不应写：
 - `docs/design/`：系统设计、领域模型和产品机制。
 - `docs/releases/`：用户可见更新历史。
 - `README.md`：对外入口和最新公开摘要。
+
+- [章节生产与 Gemini 网页版交接](./workflows/factory-gemini-web-writing.md)：正文回填、状态提交与写作包导出边界。

@@ -47,3 +47,6 @@ site/public/architecture/
 # Python gateway bytecode is a local runtime artifact.
 __pycache__/
 *.py[cod]
+
+# Local dependency links for the isolated worktree
+**/node_modules

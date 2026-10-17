@@ -130,11 +130,99 @@ export async function generateChapterExecutionContract(
     provider: import("@ai-novel/shared/types/llm").LLMProvider;
     model: string;
     temperature: number;
+    guidance: string;
   }> = {},
 ) {
   const { data } = await apiClient.post<ApiResponse<Chapter>>(
     `/novels/${novelId}/chapters/${chapterId}/execution-contract`,
     payload,
+  );
+  return data;
+}
+
+export type ChapterCreativeRevisionScope = "chapter_plan" | "execution_contract" | "prose";
+
+export interface ChapterCreativeTrace {
+  chapter: { id: string; order: number; title: string };
+  stages: Array<{ key: string; title: string; text: string }>;
+  prompts: {
+    outline: null | {
+      promptId: string;
+      version: string;
+      messages: Array<{ role: string; content: string }>;
+      contextBlocks: Array<{ id: string; group: string; content: string }>;
+    };
+    structuredOutline: null | {
+      promptId: string;
+      version: string;
+      messages: Array<{ role: string; content: string }>;
+      contextBlocks: Array<{ id: string; group: string; content: string }>;
+    };
+    volumeScript: null | {
+      promptId: string;
+      version: string;
+      messages: Array<{ role: string; content: string }>;
+      contextBlocks: Array<{ id: string; group: string; content: string }>;
+    };
+    executionContract: null | {
+      promptId: string;
+      version: string;
+      messages: Array<{ role: string; content: string }>;
+      contextBlocks: Array<{ id: string; group: string; content: string }>;
+    };
+    writer: null | {
+      promptId: string;
+      version: string;
+      messages: Array<{ role: string; content: string }>;
+      contextBlocks: Array<{ id: string; group: string; content: string }>;
+    };
+  };
+}
+
+export interface ChapterCreativeRevision {
+  id: string;
+  scope: ChapterCreativeRevisionScope;
+  label: string;
+  createdAt: string;
+}
+
+export async function getChapterCreativeTrace(novelId: string, chapterId: string) {
+  const { data } = await apiClient.get<ApiResponse<ChapterCreativeTrace>>(
+    `/novels/${novelId}/chapters/${chapterId}/creative-trace`,
+  );
+  return data;
+}
+
+export async function listChapterCreativeRevisions(novelId: string, chapterId: string) {
+  const { data } = await apiClient.get<ApiResponse<ChapterCreativeRevision[]>>(
+    `/novels/${novelId}/chapters/${chapterId}/revisions`,
+  );
+  return data;
+}
+
+export async function createChapterCreativeRevision(
+  novelId: string,
+  chapterId: string,
+  payload: { scope: ChapterCreativeRevisionScope; label?: string },
+) {
+  const { data } = await apiClient.post<ApiResponse<ChapterCreativeRevision | null>>(
+    `/novels/${novelId}/chapters/${chapterId}/revisions`,
+    payload,
+  );
+  return data;
+}
+
+export async function restoreChapterCreativeRevision(
+  novelId: string,
+  chapterId: string,
+  revisionId: string,
+) {
+  const { data } = await apiClient.post<ApiResponse<{
+    id: string;
+    scope: ChapterCreativeRevisionScope;
+    chapter: Partial<import("@ai-novel/shared/types/novel").Chapter>;
+  }>>(
+    `/novels/${novelId}/chapters/${chapterId}/revisions/${revisionId}/restore`,
   );
   return data;
 }

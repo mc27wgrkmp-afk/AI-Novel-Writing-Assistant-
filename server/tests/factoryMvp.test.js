@@ -312,3 +312,74 @@ test("creation directions carry earlier feedback into subsequent revisions", asy
   assert.match(captured[1].feedback, /不要爱情线/);
   assert.match(captured[1].feedback, /结尾揭开真相/);
 });
+
+test("Gemini web waits for pasted prose and continues with audited state without writer calls", async () => {
+  const { repository, gateway, service } = engine();
+  const book = await repository.create({ ...setup(), writerMode: "gemini_web" });
+  await service.start(book.id, 3); await service.waitForIdle(book.id);
+  let saved = await repository.read(book.id);
+  assert.equal(saved.chapters[0].status, "paused");
+  assert.equal(saved.chapters[0].phase, "draft");
+  assert.ok(saved.chapters[0].prompt);
+  assert.equal(saved.stateVersion, 0);
+  assert.equal(gateway.calls.write.length, 0);
+  await assert.rejects(service.resume(book.id), /粘贴生成的正文/);
+  await assert.rejects(service.editDraft(book.id, "  "), /正文不能为空/);
+  await service.editDraft(book.id, text);
+  await service.resume(book.id); await service.waitForIdle(book.id);
+  saved = await repository.read(book.id);
+  assert.equal(saved.stateVersion, 1);
+  assert.equal(saved.chapters[0].committed, true);
+  assert.equal(saved.chapters[1].status, "paused");
+  assert.equal(saved.chapters[1].phase, "draft");
+  assert.equal(saved.chapters[1].inputState.location, "城门1");
+  assert.equal(gateway.calls.write.length, 0);
+  assert.equal(gateway.calls.patch.length, 0);
+  assert.equal(gateway.calls.plan.length, 2);
+});
+
+test("failed API drafts can switch to Gemini web without losing their scripts", async () => {
+  const gateway = models(); gateway.write = async () => { throw new Error("gateway offline"); };
+  const { repository, service } = engine(undefined, gateway);
+  const book = await repository.create(setup());
+  await service.start(book.id); await service.waitForIdle(book.id);
+  const before = await repository.read(book.id);
+  assert.equal(before.chapters[0].status, "failed");
+  await service.useGeminiWeb(book.id);
+  const saved = await repository.read(book.id);
+  assert.equal(saved.writerMode, "gemini_web");
+  assert.equal(saved.chapters[0].status, "paused");
+  assert.deepEqual(saved.chapters[0].script, before.chapters[0].script);
+  await service.editDraft(book.id, text);
+  await service.resume(book.id); await service.waitForIdle(book.id);
+  assert.equal((await repository.read(book.id)).stateVersion, 1);
+});
+
+test("Gemini web audit failures wait for external revision without consuming API repair budget", async () => {
+  const gateway = models(); const review = gateway.review.bind(gateway);
+  gateway.review = async input => input.content.includes("系统奖励") ? output({ checks: { ...allPassed(), canon: false }, issues: [{ code: "canon", severity: "blocking", description: "违背设定", evidence: "系统奖励", repairInstruction: "删除系统奖励" }], summary: "待改", changes: [] }) : review(input);
+  const { repository, service } = engine(undefined, gateway);
+  const book = await repository.create({ ...setup(), writerMode: "gemini_web" });
+  await service.start(book.id); await service.waitForIdle(book.id);
+  await service.editDraft(book.id, text + "系统奖励");
+  await service.resume(book.id); await service.waitForIdle(book.id);
+  let saved = await repository.read(book.id);
+  assert.equal(saved.chapters[0].status, "blocked");
+  assert.equal(saved.stateVersion, 0);
+  assert.equal(saved.chapters[0].repairAttempts, 0);
+  assert.equal(gateway.calls.patch.length, 0);
+  await service.editDraft(book.id, text);
+  await service.resume(book.id); await service.waitForIdle(book.id);
+  saved = await repository.read(book.id);
+  assert.equal(saved.stateVersion, 1);
+  assert.equal(saved.chapters[0].versions.length, 2);
+});
+
+test("web setup accepts no local writer configuration and compiled prompt contains all writing context", () => {
+  const { compileFactoryPrompt } = require("../dist/prompting/prompts/factory/factory.prompts");
+  const input = { ...setup(), writerMode: "gemini_web" }; delete input.writer;
+  const parsed = factorySetupSchema.parse(input);
+  assert.equal(parsed.writer.provider, "gemini_web");
+  const prompt = compileFactoryPrompt({ setup: parsed, state: parsed.initialState, previousSummary: "前章已安全撤退", order: 2, goal: parsed.goals[1], script: { title: "小剧本", scenes: ["进入城门"], mustDo: ["走到城门"], mustNot: ["获得系统"], hook: "有人敲门" } });
+  for (const value of ["只输出本章纯正文", "陆沉永远不能获得系统", "前章已安全撤退", "进入城门", "500", "未来目标", "以行动和对话推进"]) assert.ok(prompt.includes(value), value);
+});

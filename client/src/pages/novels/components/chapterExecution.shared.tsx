@@ -16,7 +16,7 @@ import AiActionLabel from "@/components/common/AiActionLabel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
-export type AssetTabKey = "content" | "taskSheet" | "sceneCards" | "quality" | "repair";
+export type AssetTabKey = "content" | "taskSheet" | "sceneCards" | "quality" | "repair" | "prompts";
 export type QueueFilterKey = "all" | "setup" | "draft" | "review" | "completed";
 export type ChapterExecutionFlowStageKey =
   | "execution_plan"

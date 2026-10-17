@@ -50,4 +50,4 @@ process.on("SIGTERM", () => stop());
 launch(["--filter", "@ai-novel/server", "exec", "ts-node-dev", "--respawn", "--exit-child", "--transpile-only", "src/app.ts"]);
 launch(["--filter", "@ai-novel/client", "exec", "vite", "--host", "127.0.0.1", "--port", webPort, "--strictPort"]);
 console.log(`章节生产页：http://127.0.0.1:${webPort}/factory`);
-console.log("正文服务与审核模型请在模型配置页填写；点击生成后才会发送故事材料。");
+console.log("请配置规划与审核模型；正文默认在 Gemini 网页版完成，复制指令后粘贴正文回来。");

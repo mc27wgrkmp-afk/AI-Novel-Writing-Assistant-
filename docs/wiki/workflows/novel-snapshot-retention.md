@@ -13,6 +13,7 @@
 - 自动快照包括 `before_pipeline` 和 `auto_milestone`，两类合并计数。
 - 每本小说默认保留最近 10 份自动快照，可通过 `NOVEL_SNAPSHOT_RETENTION_COUNT` 调整。
 - `manual` 快照不参与自动裁剪，恢复前自动创建的手动备份也必须保留。
+- 章节创作链路的 `chapter_plan`、`execution_contract`、`prose` 是作用域版本记录，只保留每章每作用域最近 40 个；它们复用 `NovelSnapshot` 存储，但用专属前缀标识、从全书版本历史隐藏，并单独裁剪。
 - 创建自动快照后立即尝试裁剪旧自动快照；裁剪失败只记录警告，不阻断章节生产链。
 - `GET /novels/:id/snapshots` 只返回 `id`、`novelId`、`label`、`triggerType` 和 `createdAt`，不能返回 `snapshotData`。
 - 一次性存量治理使用 `server/scripts/prune-snapshots.cjs`，默认 dry-run；执行删除前必须创建已校验的 SQLite 备份，并在删除后执行 `VACUUM` 回收磁盘空间。

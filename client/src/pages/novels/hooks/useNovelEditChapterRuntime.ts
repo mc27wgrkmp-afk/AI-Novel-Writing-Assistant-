@@ -3,6 +3,7 @@ import { useMutation, type QueryClient } from "@tanstack/react-query";
 import type { ReviewIssue, Chapter, StoryStateSnapshot, StoryPlan } from "@ai-novel/shared/types/novel";
 import type { LLMProvider } from "@ai-novel/shared/types/llm";
 import { generateChapterPlan, replanNovel, reviewNovelChapter } from "@/api/novel";
+import { createChapterCreativeRevision } from "@/api/novel/chapters";
 import { queryKeys } from "@/api/queryKeys";
 import type { ChapterExecutionStrategy } from "../chapterExecution.utils";
 import type { ChapterReviewResult } from "../chapterPlanning.shared";
@@ -68,11 +69,17 @@ export function useNovelEditChapterRuntime({
   const [reviewActionKind, setReviewActionKind] = useState<ChapterReviewActionKind>(null);
 
   const generateChapterPlanMutation = useMutation({
-    mutationFn: () => generateChapterPlan(novelId, selectedChapterId, {
-      provider: llm.provider,
-      model: llm.model,
-      temperature: llm.temperature,
-    }),
+    mutationFn: async () => {
+      await createChapterCreativeRevision(novelId, selectedChapterId, {
+        scope: "chapter_plan",
+        label: "重新生成分纲前",
+      });
+      return generateChapterPlan(novelId, selectedChapterId, {
+        provider: llm.provider,
+        model: llm.model,
+        temperature: llm.temperature,
+      });
+    },
     onSuccess: async () => {
       setChapterOperationMessage("章节执行计划已生成，可直接开始写本章。");
       await Promise.all([
@@ -140,8 +147,17 @@ export function useNovelEditChapterRuntime({
     fullAuditMutation.mutate();
   };
 
-  const handleGenerateSelectedChapter = () => {
+  const handleGenerateSelectedChapter = async () => {
     if (!selectedChapter) {
+      return;
+    }
+    try {
+      await createChapterCreativeRevision(novelId, selectedChapter.id, {
+        scope: "prose",
+        label: "重新生成正文前",
+      });
+    } catch (error) {
+      setChapterOperationMessage(error instanceof Error ? error.message : "保存当前正文版本失败，暂未开始重写。");
       return;
     }
     setChapterOperationMessage("正在生成本章正文...");

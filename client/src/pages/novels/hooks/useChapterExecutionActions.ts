@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import type { Chapter, ReviewIssue } from "@ai-novel/shared/types/novel";
+import { CHAPTER_EXECUTION_CONTRACT_REGENERATION_GUIDANCE } from "@ai-novel/shared/types/chapterCreative";
 import { updateNovelChapter } from "@/api/novel";
-import { generateChapterExecutionContract } from "@/api/novel/chapters";
+import { createChapterCreativeRevision, generateChapterExecutionContract } from "@/api/novel/chapters";
 import { generateNovelChapterSummary } from "@/api/novelChapterSummary";
 import {
   buildRepairIssue,
@@ -88,7 +89,9 @@ export function useChapterExecutionActions({
   });
 
   const generateExecutionContractMutation = useMutation({
-    mutationFn: () => generateChapterExecutionContract(novelId, selectedChapterId),
+    mutationFn: (guidance?: string) => generateChapterExecutionContract(novelId, selectedChapterId, {
+      guidance,
+    }),
     onSuccess: async () => {
       await invalidateNovelDetail();
     },
@@ -144,17 +147,20 @@ export function useChapterExecutionActions({
     onMessage("生成策略已应用到当前章节。");
   };
 
-  const rewriteChapter = () => {
+  const rewriteChapter = async () => {
     const chapter = ensureChapter();
     if (!chapter) {
       return;
     }
     setGenerationActionKind("rewrite");
-    patchChapterMutation.mutate({
-      content: "",
-      chapterStatus: "pending_generation",
-      repairHistory: `${chapter.repairHistory ?? ""}\n[rewrite] ${new Date().toISOString()}`.trim(),
-    });
+    try {
+      await patchChapterMutation.mutateAsync({
+        chapterStatus: "pending_generation",
+        repairHistory: `${chapter.repairHistory ?? ""}\n[rewrite] ${new Date().toISOString()}`.trim(),
+      });
+    } catch {
+      return;
+    }
     void syncNovelWorkflowStageSilently({
       novelId,
       stage: "chapter_execution",
@@ -195,12 +201,22 @@ export function useChapterExecutionActions({
     summarizeChapterMutation.mutate();
   };
 
-  const generateTaskSheet = () => {
+  const generateTaskSheet = async () => {
     if (!ensureChapter()) {
       return;
     }
     setExecutionContractActionKind("taskSheet");
-    generateExecutionContractMutation.mutate(undefined, {
+    try {
+      await createChapterCreativeRevision(novelId, selectedChapterId, {
+        scope: "execution_contract",
+        label: "重新生成小剧本前",
+      });
+    } catch (error) {
+      setExecutionContractActionKind(null);
+      onMessage(error instanceof Error ? error.message : "保存当前小剧本版本失败，暂未开始重生成。");
+      return;
+    }
+    generateExecutionContractMutation.mutate(CHAPTER_EXECUTION_CONTRACT_REGENERATION_GUIDANCE, {
       onSuccess: async (response) => {
         await invalidateNovelDetail();
         const chapterId = response.data?.id ?? selectedChapterId;
@@ -216,12 +232,22 @@ export function useChapterExecutionActions({
     });
   };
 
-  const generateSceneCards = () => {
+  const generateSceneCards = async () => {
     if (!ensureChapter()) {
       return;
     }
     setExecutionContractActionKind("sceneCards");
-    generateExecutionContractMutation.mutate(undefined, {
+    try {
+      await createChapterCreativeRevision(novelId, selectedChapterId, {
+        scope: "execution_contract",
+        label: "重新生成小剧本前",
+      });
+    } catch (error) {
+      setExecutionContractActionKind(null);
+      onMessage(error instanceof Error ? error.message : "保存当前小剧本版本失败，暂未开始重生成。");
+      return;
+    }
+    generateExecutionContractMutation.mutate(CHAPTER_EXECUTION_CONTRACT_REGENERATION_GUIDANCE, {
       onSuccess: async (response) => {
         await invalidateNovelDetail();
         const chapterId = response.data?.id ?? selectedChapterId;

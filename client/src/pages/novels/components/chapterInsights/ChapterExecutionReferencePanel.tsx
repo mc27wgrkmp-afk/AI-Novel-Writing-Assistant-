@@ -8,6 +8,7 @@ import type {
 } from "@ai-novel/shared/types/novel";
 import type { SSEFrame } from "@ai-novel/shared/types/api";
 import type { ChapterRuntimePackage } from "@ai-novel/shared/types/chapterRuntime";
+import ChapterCreativeTracePanel from "./ChapterCreativeTracePanel";
 import {
   readChapterQualityDebtDetails,
   type ChapterQualityDebtDetails,
@@ -34,6 +35,13 @@ interface ChapterExecutionReferencePanelProps {
   selectedChapter?: Chapter;
   assetTab: AssetTabKey;
   onAssetTabChange: (tab: AssetTabKey) => void;
+  active: boolean;
+  onRegeneratePlan: () => void;
+  onRegenerateScript: () => void;
+  onRegenerateProse: () => void;
+  isRegeneratingPlan: boolean;
+  isRegeneratingScript: boolean;
+  isRegeneratingProse: boolean;
   chapterPlan?: StoryPlan | null;
   latestStateSnapshot?: StoryStateSnapshot | null;
   chapterAuditReports: AuditReport[];
@@ -110,6 +118,13 @@ export default function ChapterExecutionReferencePanel(props: ChapterExecutionRe
     selectedChapter,
     assetTab,
     onAssetTabChange,
+    active,
+    onRegeneratePlan,
+    onRegenerateScript,
+    onRegenerateProse,
+    isRegeneratingPlan,
+    isRegeneratingScript,
+    isRegeneratingProse,
     chapterPlan,
     latestStateSnapshot,
     chapterAuditReports,
@@ -191,6 +206,7 @@ export default function ChapterExecutionReferencePanel(props: ChapterExecutionRe
           <TabsTrigger value="sceneCards" className="rounded-xl text-xs">场景</TabsTrigger>
           <TabsTrigger value="quality" className="rounded-xl text-xs">质量</TabsTrigger>
           <TabsTrigger value="repair" className="rounded-xl text-xs">修复</TabsTrigger>
+          <TabsTrigger value="prompts" className="col-span-2 rounded-xl text-xs">创作链路与提示词</TabsTrigger>
           <TabsTrigger value="content" className="col-span-2 rounded-xl text-xs">上下文诊断</TabsTrigger>
         </TabsList>
 
@@ -348,6 +364,20 @@ export default function ChapterExecutionReferencePanel(props: ChapterExecutionRe
             onReplan={onReplanChapter}
             isReplanning={isReplanningChapter}
             lastReplanResult={lastReplanResult}
+          />
+        </TabsContent>
+
+        <TabsContent value="prompts" className="space-y-3">
+          <ChapterCreativeTracePanel
+            novelId={selectedChapter.novelId}
+            chapter={selectedChapter}
+            active={active && assetTab === "prompts"}
+            onRegeneratePlan={onRegeneratePlan}
+            onRegenerateScript={onRegenerateScript}
+            onRegenerateProse={onRegenerateProse}
+            isRegeneratingPlan={isRegeneratingPlan}
+            isRegeneratingScript={isRegeneratingScript}
+            isRegeneratingProse={isRegeneratingProse}
           />
         </TabsContent>
       </Tabs>

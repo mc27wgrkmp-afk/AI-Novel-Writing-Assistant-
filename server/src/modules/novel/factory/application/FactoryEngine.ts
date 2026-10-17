@@ -31,7 +31,7 @@ function promptContext(book: FactoryBook, chapter: FactoryChapter, next = false)
   const setup: FactorySetup = {
     title: book.title, constitution: book.constitution, lockedFacts: book.lockedFacts,
     negativeCanon: book.negativeCanon, style: book.style, initialState: book.initialState,
-    goals: book.goals, targetWords: book.targetWords, planner: book.planner, writer: book.writer,
+    goals: book.goals, targetWords: book.targetWords, planner: book.planner, writer: book.writer, writerMode: book.writerMode,
   };
   return {
     novelId: book.novelId, setup, state: next ? book.currentState : chapter.inputState,
@@ -94,6 +94,7 @@ export class FactoryEngine {
       const book = await this.repository.mutate(id, (draft) => {
         const chapter = currentChapter(draft);
         if (!chapter || chapter.status === "completed") throw new FactoryError("没有需要恢复的章节。", 409);
+        if (draft.writerMode === "gemini_web" && chapter.phase === "draft" && !currentText(chapter)) throw new FactoryError("请先将写作指令交给 Gemini 网页版，并粘贴生成的正文。", 409);
         if (chapter.status === "blocked") throw new FactoryError("请先根据审核意见修改未定稿正文，再恢复审核。", 409);
         if (chapter.phase === "repair" && chapter.repairAttempts >= 2 && !chapter.repairInFlight) throw new FactoryError("已用完两轮自动修复，请先修改正文，再恢复审核。", 409);
         if (chapter.repairInFlight) {
@@ -110,7 +111,24 @@ export class FactoryEngine {
     } catch (error) { await this.repository.release(id, this.owner); throw error; }
   }
 
+  async useGeminiWeb(id: string): Promise<FactoryBook> {
+    await this.repository.claim(id, this.owner);
+    try {
+      return await this.repository.mutate(id, (book) => {
+        const chapter = currentChapter(book);
+        if (chapter && ["running", "queued"].includes(chapter.status)) throw new FactoryError("请先暂停并等待当前步骤保存，再切换正文方式。", 409);
+        book.writerMode = "gemini_web";
+        if (chapter && !chapter.committed && chapter.phase === "draft" && chapter.script) {
+          chapter.prompt = this.models.compile(promptContext(book, chapter));
+          chapter.status = "paused";
+          chapter.error = "小剧本已准备好。复制写作指令到 Gemini 网页版，完成后粘贴正文。";
+        }
+      }, this.owner);
+    } finally { await this.repository.release(id, this.owner); }
+  }
+
   async editDraft(id: string, text: string): Promise<FactoryBook> {
+    if (!text.trim()) throw new FactoryError("正文不能为空。", 422);
     await this.repository.claim(id, this.owner);
     try {
       return await this.repository.mutate(id, (book) => {
@@ -190,8 +208,16 @@ export class FactoryEngine {
       const prompt = this.models.compile({ ...input, script });
       await this.repository.mutate(id, (draft) => {
         const c = currentChapter(draft)!; c.script = script; c.prompt = prompt; c.phase = "draft"; c.usage.push({ phase, ...result.usage });
+        if (draft.writerMode === "gemini_web") { c.status = "paused"; c.error = "小剧本已准备好。复制写作指令到 Gemini 网页版，完成后粘贴正文。"; }
       }, this.owner);
     } else if (phase === "draft") {
+      if (book.writerMode === "gemini_web") {
+        await this.repository.mutate(id, (draft) => {
+          const c = currentChapter(draft)!;
+          c.status = "paused"; c.error = "请在 Gemini 网页版完成正文，然后粘贴回来。";
+        }, this.owner);
+        return;
+      }
       const result = await this.call(id, phase, book.writer, () => this.models.write(input, book.writer));
       if (!result.output.trim()) throw new FactoryError("正文模型返回空内容，请检查连接后重试。", 422);
       await this.repository.mutate(id, (draft) => {
@@ -207,9 +233,16 @@ export class FactoryEngine {
         c.reviews.push(result.output); c.usage.push({ phase, ...result.usage });
         c.error = blockers.length ? blockers.join("\n") : null;
         c.phase = blockers.length ? "repair" : "commit";
-        if (blockers.length && c.repairAttempts >= 2 && c.status !== "paused") c.status = "blocked";
+        if (blockers.length && (draft.writerMode === "gemini_web" || c.repairAttempts >= 2) && c.status !== "paused") c.status = "blocked";
       }, this.owner);
     } else if (phase === "repair") {
+      if (book.writerMode === "gemini_web") {
+        await this.repository.mutate(id, (draft) => {
+          const c = currentChapter(draft)!; c.status = "blocked";
+          c.error = "请按审核意见在 Gemini 网页版修改正文，粘贴修改稿后继续审核。";
+        }, this.owner);
+        return;
+      }
       await this.repository.mutate(id, (draft) => {
         const c = currentChapter(draft)!;
         if (c.status === "paused") throw new FactoryError("已暂停。", 409);

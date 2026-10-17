@@ -261,6 +261,13 @@ export default function ChapterManagementTab(props: ChapterTabViewProps) {
                   selectedChapter={selectedChapter}
                   assetTab={assetTab}
                   onAssetTabChange={setAssetTab}
+                  active={rightRailTab === "reference"}
+                  onRegeneratePlan={onGenerateChapterPlan}
+                  onRegenerateScript={onGenerateTaskSheet}
+                  onRegenerateProse={onGenerateSelectedChapter}
+                  isRegeneratingPlan={isGeneratingChapterPlan}
+                  isRegeneratingScript={isGeneratingTaskSheet || isGeneratingSceneCards}
+                  isRegeneratingProse={isStreaming}
                   chapterPlan={chapterPlan}
                   latestStateSnapshot={latestStateSnapshot}
                   chapterAuditReports={chapterAuditReports}

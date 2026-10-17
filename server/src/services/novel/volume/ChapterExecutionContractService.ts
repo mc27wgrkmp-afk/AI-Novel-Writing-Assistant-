@@ -130,7 +130,7 @@ export class ChapterExecutionContractService {
         persisted: chapter,
       })
       : null;
-    if (readiness?.canReuse && !options.forceRefresh) {
+    if (readiness?.canReuse && !options.forceRefresh && !options.guidance?.trim()) {
       const styleContract = await this.resolveStyleContract(novelId, chapterId, options.taskStyleProfileId);
       return {
         ...chapter,

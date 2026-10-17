@@ -133,7 +133,13 @@ export class NovelCoreSnapshotService {
 
   async listNovelSnapshots(novelId: string) {
     return prisma.novelSnapshot.findMany({
-      where: { novelId },
+      where: {
+        novelId,
+        OR: [
+          { label: null },
+          { NOT: { label: { startsWith: "chapter-creative-revision:v1:" } } },
+        ],
+      },
       select: {
         id: true,
         novelId: true,

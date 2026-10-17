@@ -20,6 +20,7 @@ import {
 } from "../state/CanonicalStateService";
 import { contextAssemblyService } from "../production/ContextAssemblyService";
 import type { ChapterRuntimeRequestInput } from "./chapterRuntimeSchema";
+import type { WorldContextBlock } from "../worldContext/WorldContextGateway";
 import {
   buildPreviousChaptersSummary,
 } from "./runtimeContextBlocks";
@@ -108,6 +109,7 @@ export class GenerationContextAssembler {
     novelId: string,
     chapterId: string,
     request: ChapterRuntimeRequestInput,
+    options: { worldContextBlock?: WorldContextBlock | null } = {},
   ): Promise<{
     novel: { id: string; title: string };
     chapter: {
@@ -166,7 +168,9 @@ export class GenerationContextAssembler {
       payoffLedger,
       characterResourceContext,
     ] = await Promise.all([
-      this.worldContextGateway.getWorldContextBlock(novelId, { purpose: "chapter" }),
+      options.worldContextBlock === undefined
+        ? this.worldContextGateway.getWorldContextBlock(novelId, { purpose: "chapter" })
+        : Promise.resolve(options.worldContextBlock),
       pendingReviewProposalCountPromise,
       pendingCharacterHardFactReviewsPromise,
       prisma.auditIssue.findMany({

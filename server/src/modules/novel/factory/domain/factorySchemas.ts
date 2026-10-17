@@ -18,8 +18,10 @@ export const factorySetupSchema = z.object({
   }).strict()).min(1).max(10),
   targetWords: z.number().int().min(300).max(6000),
   planner: factoryModelSchema,
-  writer: factoryModelSchema,
+  writer: factoryModelSchema.default({ provider: "gemini_web", model: "Gemini 网页版" }),
+  writerMode: z.enum(["api", "gemini_web"]).default("api"),
 }).strict().superRefine((setup, ctx) => {
+  if (setup.writerMode === "api" && setup.writer.provider === "gemini_web") ctx.addIssue({ code: "custom", message: "接口写作需要选择正文模型", path: ["writer"] });
   const ids = setup.lockedFacts.map((f) => f.id);
   if (new Set(ids).size !== ids.length) ctx.addIssue({ code: "custom", message: "锁定设定标识不能重复", path: ["lockedFacts"] });
   if (Object.keys(setup.initialState).some((key) => ids.includes(key) || key.startsWith("canon."))) {
